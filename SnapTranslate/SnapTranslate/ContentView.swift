@@ -123,7 +123,7 @@ struct ContentView: View {
                     .resizable()
                     .scaledToFit()
             } else {
-                VStack(spacing: 12) {
+                VStack(spacing: 16) {
                     Image("img_none")
                     Text("从相册中选择图片开始翻译")
                         .font(.subheadline)
