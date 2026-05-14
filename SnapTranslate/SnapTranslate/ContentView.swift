@@ -123,11 +123,13 @@ struct ContentView: View {
                     .resizable()
                     .scaledToFit()
             } else {
-                ContentUnavailableView(
-                    "还没有图片",
-                    systemImage: "photo.on.rectangle.angled",
-                    description: Text("从相册选一张外文截图开始翻译")
-                )
+                VStack(spacing: 12) {
+                    Image("img_none")
+                    Text("从相册中选择图片开始翻译")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
