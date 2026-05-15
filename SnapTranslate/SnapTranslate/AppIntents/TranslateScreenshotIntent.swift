@@ -17,8 +17,6 @@ struct TranslateScreenshotIntent: AppIntent {
         let engineRaw = defaults.string(forKey: "translationEngine") ?? TranslationEngine.builtin.rawValue
         let engine = TranslationEngine(rawValue: engineRaw) ?? .builtin
 
-        // AppIntent 路径无法用 Apple Translation(SwiftUI Environment 限制),
-        // 所以 .builtin / .apple 都走默认模型(DefaultModelConfig);只有 .llm 才用用户填的自定义配置。
         let llmSettings: LLMTranslationService.Settings = {
             switch engine {
             case .llm:
@@ -27,7 +25,7 @@ struct TranslateScreenshotIntent: AppIntent {
                     apiKey: defaults.string(forKey: "llmAPIKey") ?? "",
                     model: defaults.string(forKey: "llmModel") ?? "gpt-4o-mini"
                 )
-            case .builtin, .apple:
+            case .builtin:
                 return DefaultModelConfig.settings
             }
         }()

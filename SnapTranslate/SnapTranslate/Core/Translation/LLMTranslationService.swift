@@ -24,25 +24,36 @@ enum LLMTranslationService {
         let numbered = texts.enumerated()
             .map { "[\($0.offset)] \($0.element)" }
             .joined(separator: "\n")
-        let prompt = """
-        把下面 \(texts.count) 段文字翻译成\(targetLanguageDisplayName)。严格规则:
-        1. 必须返回正好 \(texts.count) 段译文,与原文一一对应,顺序不变。
-        2. 不要合并多段,不要省略任何一段(即使是空字符串、纯符号如"•""-"或单字符,也要保留对应位置原样输出)。
-        3. 数组长度必须等于 \(texts.count)。
+
+        let systemPrompt = """
+        You are a professional translator. Translate every input segment into the user's target language.
+
+        Strict rules:
+        1. ALWAYS translate. Never echo the source text. The source may be in any language (Chinese, English, Japanese, Korean, or mixed) — you must always produce output in the target language.
+        2. Even if the source is already in the same language as the target, rephrase it in the target language. Do not return identical text.
+        3. Keep as-is only: pure numbers (e.g. "5.43"), URLs, emails, pure symbols (•, -, +), and well-known international proper nouns (NVIDIA, iOS, Apple, GDP, Python).
+        4. Output ONLY a JSON object: {"translations": ["...", "..."]}. No prose, no markdown.
+        """
+
+        let userPrompt = """
+        目标语言 / Target language: \(targetLanguageDisplayName)
+
+        请将以下 \(texts.count) 段文本翻译成 \(targetLanguageDisplayName)。
+        **无论原文是中文、英文还是混合,都必须翻译成 \(targetLanguageDisplayName),不要保留原文。**
 
         \(numbered)
 
-        只返回 JSON,格式: {"translations": ["译文0", "译文1", ...]}
-        不要任何额外文字、说明或 markdown 标记。
+        返回 JSON: {"translations": ["译文0", "译文1", ...]},数组长度 = \(texts.count)。
         """
 
         let body: [String: Any] = [
             "model": settings.model,
             "messages": [
-                ["role": "user", "content": prompt]
+                ["role": "system", "content": systemPrompt],
+                ["role": "user", "content": userPrompt]
             ],
             "response_format": ["type": "json_object"],
-            "temperature": 0
+            "temperature": 0.3
         ]
 
         var request = URLRequest(url: url)
@@ -91,6 +102,18 @@ enum LLMTranslationService {
         } else if aligned.count > texts.count {
             print("⚠️ LLM 译文条数(\(aligned.count))多于原文(\(texts.count)),截断到 \(texts.count) 段")
             aligned = Array(aligned.prefix(texts.count))
+        }
+
+        // 未翻译检测:LLM 偶尔会拒绝翻译,直接原样返回。如果 70% 以上段落与原文完全一致
+        // 且至少有 3 段非空文本可比较,认为 LLM 实际没翻译,抛错让上层提示用户。
+        let comparable = zip(texts, aligned).filter { !$0.0.isEmpty }
+        if comparable.count >= 3 {
+            let identicalCount = comparable.filter { $0.0 == $0.1 }.count
+            let identicalRate = Double(identicalCount) / Double(comparable.count)
+            print("🔍 LLM 翻译率检查: \(identicalCount)/\(comparable.count) 段与原文一致 (\(Int(identicalRate * 100))%)")
+            if identicalRate > 0.7 {
+                throw LLMError(message: "LLM 未翻译成\(targetLanguageDisplayName)(\(identicalCount)/\(comparable.count) 段保持原文)。请重试或更换图片。")
+            }
         }
         return aligned
     }

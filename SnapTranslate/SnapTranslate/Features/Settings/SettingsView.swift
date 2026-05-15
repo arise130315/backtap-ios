@@ -3,13 +3,11 @@ import SwiftUI
 /// 翻译引擎枚举的 raw 值,跟 @AppStorage 的 String 对应。
 enum TranslationEngine: String, CaseIterable, Identifiable {
     case builtin
-    case apple
     case llm
     nonisolated var id: String { rawValue }
     nonisolated var displayName: String {
         switch self {
         case .builtin: return "默认模型"
-        case .apple: return "Apple Translation"
         case .llm: return "自定义"
         }
     }
@@ -49,7 +47,7 @@ struct SettingsView: View {
             } header: {
                 Text("翻译")
             } footer: {
-                Text("端内翻译用 Apple Translation，数据不出本机；端外翻译用默认模型或自定义模型，需联网。")
+                Text("默认模型走云端 LLM,无需配置;自定义可填你自己的 OpenAI 兼容服务。")
             }
 
             if engineRaw == TranslationEngine.llm.rawValue {

@@ -10,7 +10,7 @@ struct OnboardingView: View {
             TabView(selection: $page) {
                 OnboardingPageView(data: .init(
                     icon: "doc.text.viewfinder",
-                    title: "识图翻译",
+                    title: "快捷翻译",
                     description: "对任意外文截图自动识别文字,在保留原版面布局的前提下翻译显示。"
                 )).tag(0)
 
@@ -25,7 +25,7 @@ struct OnboardingView: View {
                 OnboardingPageView(data: .init(
                     icon: "checkmark.shield.fill",
                     title: "开箱即用",
-                    description: "App 内置「默认模型」翻译服务,选完图就能翻译,无需任何配置。\n\n如需切换,在「设置」里选「Apple Translation」(免费离线,首次需下载语种包)或「自定义」(填你自己的 OpenAI 兼容 Key)。"
+                    description: "App 内置「默认模型」翻译服务,选完图就能翻译,无需任何配置。\n\n如需切换,在「设置」里选「自定义」填你自己的 OpenAI 兼容 Key。"
                 )).tag(3)
             }
             .tabViewStyle(.page)

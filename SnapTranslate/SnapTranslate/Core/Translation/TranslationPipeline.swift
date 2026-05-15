@@ -5,10 +5,12 @@ enum TranslationPipeline {
     enum PipelineError: LocalizedError {
         case invalidImage
         case noTextRecognized
+        case llmNotConfigured
         var errorDescription: String? {
             switch self {
             case .invalidImage: return "无法解析图片"
             case .noTextRecognized: return "未识别到文字"
+            case .llmNotConfigured: return "翻译服务未配置"
             }
         }
     }
@@ -32,22 +34,15 @@ enum TranslationPipeline {
             throw PipelineError.noTextRecognized
         }
 
-        let translations: [String]
-        if let llmSettings, !llmSettings.apiKey.isEmpty {
-            do {
-                translations = try await LLMTranslationService.translate(
-                    results.map { $0.text },
-                    targetLanguageDisplayName: targetLanguageDisplayName,
-                    settings: llmSettings
-                )
-            } catch {
-                // LLM 失败,降级 mock 译文以保证 Snippet 仍能展示
-                print("【Pipeline】LLM 失败,降级 mock: \(error.localizedDescription)")
-                translations = results.map { "【译】\($0.text)" }
-            }
-        } else {
-            translations = results.map { "【译】\($0.text)" }
+        guard let llmSettings, !llmSettings.apiKey.isEmpty else {
+            throw PipelineError.llmNotConfigured
         }
+        // LLM 失败直接抛错(不再 mock 兜底),让 AppIntent 端外显示明确错误,而不是渲染误导性的"【译】"前缀。
+        let translations = try await LLMTranslationService.translate(
+            results.map { $0.text },
+            targetLanguageDisplayName: targetLanguageDisplayName,
+            settings: llmSettings
+        )
 
         let blocks = zip(results, translations).map {
             LayoutPreservingRenderer.Block(normalizedBox: $0.0.boundingBox, translatedText: $0.1)

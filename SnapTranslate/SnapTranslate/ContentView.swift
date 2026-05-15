@@ -8,7 +8,6 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
-import Translation
 
 struct ContentView: View {
     @Environment(\.modelContext) private var context
@@ -17,9 +16,12 @@ struct ContentView: View {
     @State private var image: UIImage?
     @State private var translatedImage: UIImage?
     @State private var ocrResults: [OCRResult] = []
-    @State private var translationConfig: TranslationSession.Configuration?
-    /// session 内的目标语言,每次启动 App 重置为简体中文;同步写入 UserDefaults 供 AppIntent 读取
-    @State private var targetLanguage: TargetLanguage = .zhHans
+    /// 目标语言。初始化时从 UserDefaults 读上次保存值;onChange 时显式写回。
+    /// 不用 @AppStorage 是因为它在 Task 异步上下文里读到 stale value(SwiftUI quirk)。
+    @State private var targetLanguage: TargetLanguage = {
+        let raw = UserDefaults.standard.string(forKey: "targetLanguage") ?? TargetLanguage.zhHans.rawValue
+        return TargetLanguage(rawValue: raw) ?? .zhHans
+    }()
     @State private var isTranslating = false
     @State private var errorMessage: String?
     @State private var showingDetail = false
@@ -52,7 +54,7 @@ struct ContentView: View {
                 }
                 .padding()
             }
-            .navigationTitle("识图翻译")
+            .navigationTitle("快捷翻译")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink {
@@ -74,11 +76,8 @@ struct ContentView: View {
                 }
             }
         }
-        .onAppear {
-            targetLanguage = .zhHans
-            UserDefaults.standard.set(TargetLanguage.zhHans.rawValue, forKey: "targetLanguage")
-        }
         .onChange(of: targetLanguage) { _, newValue in
+            // 同步写回 UserDefaults,供 AppIntent 端外入口读取
             UserDefaults.standard.set(newValue.rawValue, forKey: "targetLanguage")
             // 如果当前已有图片和 OCR 结果,用新目标语言重新翻译并渲染
             if let original = image, !ocrResults.isEmpty {
@@ -87,9 +86,6 @@ struct ContentView: View {
         }
         .onChange(of: pickerItem) { _, newItem in
             Task { await loadImage(from: newItem) }
-        }
-        .translationTask(translationConfig) { session in
-            await translate(using: session)
         }
         .sheet(isPresented: $showingDetail) {
             if let img = translatedImage ?? image {
@@ -300,28 +296,10 @@ struct ContentView: View {
         switch engine {
         case .builtin:
             await runBuiltinTranslation(original: original, results: results)
-            isTranslating = false
-        case .apple:
-            #if targetEnvironment(simulator)
-            let mockTranslations = results.map { "【译】\($0.text)" }
-            print("【翻译·模拟器 mock】")
-            for (r, t) in zip(results, mockTranslations) {
-                print("  原: \(r.text)")
-                print("  译: \(t)")
-            }
-            renderTranslatedImage(original: original, translations: mockTranslations)
-            isTranslating = false
-            #else
-            translationConfig = TranslationSession.Configuration(
-                source: nil,
-                target: Locale.Language(identifier: targetLanguage.rawValue)
-            )
-            // 真机 apple 翻译异步,留给 translate(using:) 关 isTranslating
-            #endif
         case .llm:
             await runLLMTranslation(original: original, results: results)
-            isTranslating = false
         }
+        isTranslating = false
     }
 
     private func runBuiltinTranslation(original: UIImage, results: [OCRResult]) async {
@@ -342,30 +320,6 @@ struct ContentView: View {
             print("【默认模型翻译】失败: \(error.localizedDescription)")
             errorMessage = "默认模型翻译失败: \(error.localizedDescription)"
         }
-    }
-
-    private func translate(using session: TranslationSession) async {
-        guard !ocrResults.isEmpty, let original = image else {
-            isTranslating = false
-            return
-        }
-        let requests = ocrResults.enumerated().map { i, r in
-            TranslationSession.Request(sourceText: r.text, clientIdentifier: "\(i)")
-        }
-        do {
-            let responses = try await session.translations(from: requests)
-            let translations = responses.map { $0.targetText }
-            print("【翻译】完成 \(responses.count) 段")
-            for response in responses {
-                print("  原: \(response.sourceText)")
-                print("  译: \(response.targetText)")
-            }
-            renderTranslatedImage(original: original, translations: translations)
-        } catch {
-            print("【翻译】失败: \(error)")
-            errorMessage = "Apple 翻译失败: \(error.localizedDescription)"
-        }
-        isTranslating = false
     }
 
     private func runLLMTranslation(original: UIImage, results: [OCRResult]) async {

@@ -30,7 +30,9 @@ enum VisionOCRService {
             }
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
-            request.recognitionLanguages = ["en-US", "ja-JP", "ko-KR", "zh-Hans", "zh-Hant"]
+            // Vision Framework 按顺序决定语言优先级。中文用户场景下,zh-Hans 放第一位,
+            // 否则 Vision 会把中文当英文识别,产生 "WPS AE" / "ziŽ1E·=Ý" 这类乱码。
+            request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US", "ja-JP", "ko-KR"]
 
             do {
                 let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
