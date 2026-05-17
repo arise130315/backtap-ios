@@ -38,11 +38,17 @@ enum TranslationPipeline {
             throw PipelineError.llmNotConfigured
         }
         // LLM 失败直接抛错(不再 mock 兜底),让 AppIntent 端外显示明确错误,而不是渲染误导性的"【译】"前缀。
-        let translations = try await LLMTranslationService.translate(
-            results.map { $0.text },
-            targetLanguageDisplayName: targetLanguageDisplayName,
-            settings: llmSettings
-        )
+        // 唯一例外:SameLanguageError(源==目标语言)不算失败,直接返原图。
+        let translations: [String]
+        do {
+            translations = try await LLMTranslationService.translate(
+                results.map { $0.text },
+                targetLanguageDisplayName: targetLanguageDisplayName,
+                settings: llmSettings
+            )
+        } catch is LLMTranslationService.SameLanguageError {
+            return image
+        }
 
         let blocks = zip(results, translations).map {
             LayoutPreservingRenderer.Block(normalizedBox: $0.0.boundingBox, translatedText: $0.1)

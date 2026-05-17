@@ -13,6 +13,10 @@ enum LLMTranslationService {
         var errorDescription: String? { message }
     }
 
+    /// 不是真错误:LLM 返回内容与原文高度一致(通常是源语言==目标语言,或 LLM 拒绝翻译)。
+    /// 上层应当静默吞掉,直接给用户看原图,而不是弹"翻译失败"提示。
+    struct SameLanguageError: Error {}
+
     static func translate(_ texts: [String], targetLanguageDisplayName: String, settings: Settings) async throws -> [String] {
         guard !settings.apiKey.isEmpty else {
             throw LLMError(message: "API Key 未配置")
@@ -105,14 +109,15 @@ enum LLMTranslationService {
         }
 
         // 未翻译检测:LLM 偶尔会拒绝翻译,直接原样返回。如果 70% 以上段落与原文完全一致
-        // 且至少有 3 段非空文本可比较,认为 LLM 实际没翻译,抛错让上层提示用户。
+        // 且至少有 3 段非空文本可比较,认为不需要翻译(源语言==目标语言)或 LLM 拒绝翻译。
+        // 抛 SameLanguageError,上层静默吞掉、直接显示原图,避免误以为"翻译失败"。
         let comparable = zip(texts, aligned).filter { !$0.0.isEmpty }
         if comparable.count >= 3 {
             let identicalCount = comparable.filter { $0.0 == $0.1 }.count
             let identicalRate = Double(identicalCount) / Double(comparable.count)
             print("🔍 LLM 翻译率检查: \(identicalCount)/\(comparable.count) 段与原文一致 (\(Int(identicalRate * 100))%)")
             if identicalRate > 0.7 {
-                throw LLMError(message: "LLM 未翻译成\(targetLanguageDisplayName)(\(identicalCount)/\(comparable.count) 段保持原文)。请重试或更换图片。")
+                throw SameLanguageError()
             }
         }
         return aligned

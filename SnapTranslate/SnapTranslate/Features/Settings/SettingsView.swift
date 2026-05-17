@@ -7,7 +7,7 @@ enum TranslationEngine: String, CaseIterable, Identifiable {
     nonisolated var id: String { rawValue }
     nonisolated var displayName: String {
         switch self {
-        case .builtin: return "默认模型"
+        case .builtin: return "默认"
         case .llm: return "自定义"
         }
     }
@@ -31,23 +31,35 @@ enum TargetLanguage: String, CaseIterable, Identifiable {
 }
 
 struct SettingsView: View {
+    // 翻译
     @AppStorage("translationEngine") private var engineRaw: String = TranslationEngine.builtin.rawValue
     @AppStorage("llmBaseURL") private var llmBaseURL: String = "https://api.openai.com/v1"
     @AppStorage("llmAPIKey") private var llmAPIKey: String = ""
     @AppStorage("llmModel") private var llmModel: String = "gpt-4o-mini"
 
+    // 图片分析
+    @AppStorage("analysisEngine") private var analysisEngineRaw: String = AnalysisEngine.builtin.rawValue
+    @AppStorage("analysisBaseURL") private var analysisBaseURL: String = AnalysisDefaults.baseURL
+    @AppStorage("analysisAPIKey") private var analysisAPIKey: String = ""
+    @AppStorage("analysisModel") private var analysisModel: String = AnalysisDefaults.model
+
     var body: some View {
         Form {
             Section {
-                Picker("引擎", selection: $engineRaw) {
+                Picker("翻译内容", selection: $engineRaw) {
                     ForEach(TranslationEngine.allCases) { engine in
                         Text(engine.displayName).tag(engine.rawValue)
                     }
                 }
+                Picker("分析内容", selection: $analysisEngineRaw) {
+                    ForEach(AnalysisEngine.allCases) { engine in
+                        Text(engine.displayName).tag(engine.rawValue)
+                    }
+                }
             } header: {
-                Text("翻译")
+                Text("模型")
             } footer: {
-                Text("默认模型走云端 LLM,无需配置;自定义可填你自己的 OpenAI 兼容服务。")
+                Text("建议常规情况下使用默认模型即可,支持选择自定义其他大模型。")
             }
 
             if engineRaw == TranslationEngine.llm.rawValue {
@@ -69,9 +81,34 @@ struct SettingsView: View {
                             .autocorrectionDisabled()
                     }
                 } header: {
-                    Text("LLM 配置")
+                    Text("翻译 · LLM 配置")
                 } footer: {
                     Text("兼容 OpenAI Chat Completions 协议的服务都可填,例如 OpenRouter、DeepSeek、自部署服务。Key 仅本机存储。")
+                }
+            }
+
+            if analysisEngineRaw == AnalysisEngine.llm.rawValue {
+                Section {
+                    LabeledContent("Base URL") {
+                        TextField(AnalysisDefaults.baseURL, text: $analysisBaseURL)
+                            .multilineTextAlignment(.trailing)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                    LabeledContent("API Key") {
+                        SecureField("sk-...", text: $analysisAPIKey)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("模型") {
+                        TextField(AnalysisDefaults.model, text: $analysisModel)
+                            .multilineTextAlignment(.trailing)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                } header: {
+                    Text("图片分析 · LLM 配置")
+                } footer: {
+                    Text("必须填支持图片输入的多模态模型(如 qwen3-vl-plus、gpt-4o-mini、claude-3-5-haiku、glm-4v)。Key 仅本机存储。")
                 }
             }
 

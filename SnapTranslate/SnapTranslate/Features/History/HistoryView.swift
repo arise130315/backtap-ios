@@ -11,13 +11,13 @@ struct HistoryView: View {
                 ContentUnavailableView(
                     "暂无历史",
                     systemImage: "clock.arrow.circlepath",
-                    description: Text("翻译过的截图会出现在这里")
+                    description: Text("翻译或分析过的截图会出现在这里")
                 )
             } else {
                 List {
                     ForEach(items) { item in
                         NavigationLink {
-                            HistoryDetailView(item: item)
+                            destination(for: item)
                         } label: {
                             row(for: item)
                         }
@@ -37,7 +37,8 @@ struct HistoryView: View {
     @ViewBuilder
     private func row(for item: HistoryItem) -> some View {
         HStack(spacing: 12) {
-            if let thumb = item.translatedImage {
+            // 缩略图统一用原图(两种类型都有)
+            if let thumb = item.originalImage {
                 Image(uiImage: thumb)
                     .resizable()
                     .scaledToFill()
@@ -45,12 +46,48 @@ struct HistoryView: View {
                     .clipShape(.rect(cornerRadius: 8))
             }
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.createdAt, style: .date)
-                    .font(.subheadline)
-                Text("\(item.segmentCount) 段译文 · \(item.createdAt, style: .time)")
+                HStack(spacing: 6) {
+                    Image(systemName: item.type == .analysis ? "doc.text.magnifyingglass" : "character.bubble")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(item.createdAt, style: .date)
+                        .font(.subheadline)
+                }
+                Text(subtitle(for: item))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
+        }
+    }
+
+    private func subtitle(for item: HistoryItem) -> String {
+        switch item.type {
+        case .translation:
+            return "\(item.segmentCount) 段译文 · \(formattedTime(item.createdAt))"
+        case .analysis:
+            let preview = (item.analysisText ?? "").replacingOccurrences(of: "\n", with: " ")
+            return preview.isEmpty ? "分析 · \(formattedTime(item.createdAt))" : preview
+        }
+    }
+
+    private func formattedTime(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateStyle = .none
+        f.timeStyle = .short
+        return f.string(from: date)
+    }
+
+    @ViewBuilder
+    private func destination(for item: HistoryItem) -> some View {
+        switch item.type {
+        case .translation:
+            HistoryDetailView(item: item)
+        case .analysis:
+            AnalysisDetailView(
+                originalImage: item.originalImage,
+                analysisText: item.analysisText ?? ""
+            )
         }
     }
 

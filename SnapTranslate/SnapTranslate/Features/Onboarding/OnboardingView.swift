@@ -119,19 +119,19 @@ private struct OnboardingShortcutPage: View {
                     triggerRow(
                         icon: "hand.tap.fill",
                         title: "轻点背面 (所有 iPhone)",
-                        steps: "设置 → 辅助功能 → 触控 → 轻点背面\n→ 选「轻点两下」或「轻点三下」\n→ 滑到底找「翻译截图」→ 选中"
+                        steps: "设置 → 辅助功能 → 触控 → 轻点背面\n→ 选「轻点两下」或「轻点三下」\n→ 滑到底找「快捷翻译」→ 选中"
                     )
 
                     triggerRow(
                         icon: "button.programmable",
                         title: "操作按钮 (15 Pro / 16 Pro / 17 Pro)",
-                        steps: "设置 → 操作按钮 → 滑到「快捷指令」\n→ 选「翻译截图」"
+                        steps: "设置 → 操作按钮 → 滑到「快捷指令」\n→ 选「快捷翻译」"
                     )
 
                     triggerRow(
                         icon: "switch.2",
                         title: "控制中心",
-                        steps: "设置 → 控制中心 → 加「快捷指令」\n→ 下拉控制中心 → 选「翻译截图」"
+                        steps: "设置 → 控制中心 → 加「快捷指令」\n→ 下拉控制中心 → 选「快捷翻译」"
                     )
                 }
                 .padding(16)

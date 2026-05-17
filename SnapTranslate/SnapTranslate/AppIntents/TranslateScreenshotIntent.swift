@@ -5,7 +5,7 @@ import UIKit
 /// 让 Shortcuts(操作按钮 / 背面双击 / 控制中心)调用的入口。
 /// 系统执行完后会把 SnippetView 以半屏面板叠在用户当前 App 上方,不切走原 App。
 struct TranslateScreenshotIntent: AppIntent {
-    static let title: LocalizedStringResource = "翻译截图"
+    static let title: LocalizedStringResource = "快捷翻译"
     static let description = IntentDescription("识别截图中的外文,保留原版面布局翻译显示")
     static let openAppWhenRun: Bool = false
 
@@ -13,6 +13,9 @@ struct TranslateScreenshotIntent: AppIntent {
     var image: IntentFile
 
     func perform() async throws -> some IntentResult & ShowsSnippetView {
+        // 翻译结果是一张图,纯 Dialog 装不下;iOS 26 给所有 ShowsSnippetView 都加了黄底+禁用图标
+        // 的"未经验证第三方 UI"警告,Dialog + Snippet 组合也救不回来。两害相权,保留 snippet 体验,
+        // 接受黄底——预览图片的丝滑感比一层警告更重要。
         let defaults = UserDefaults.standard
         let engineRaw = defaults.string(forKey: "translationEngine") ?? TranslationEngine.builtin.rawValue
         let engine = TranslationEngine(rawValue: engineRaw) ?? .builtin
@@ -56,7 +59,6 @@ struct TranslationSnippetView: View {
                     .scaledToFit()
                     .frame(maxWidth: .infinity)
                     .background(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 24))
             }
         }
         .padding(.horizontal, 14)
