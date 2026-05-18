@@ -9,7 +9,7 @@
 
 主 App + 两个 AppIntent(快捷翻译 / 快捷分析)端外入口已联通,iOS 26 上的呈现适配是当前的主要工作。
 
-**工作目录有大量未提交改动**(主项目 `~/Desktop/iOS快捷翻译` 在 `main` 分支),具体见下方"未解决"。
+工作目录干净,**3 个 commit 已 push 到 `origin/main`**(2026-05-18)。详见下方"会话日志"。
 
 ## 正在做什么
 
@@ -22,20 +22,28 @@
 
 1. **翻译 snippet 黄底**:产品权衡,不是 bug——iOS 26 的硬限制,没办法在保留图片预览的同时去掉警告。
 2. **Dialog "平衡换行"行宽变窄**:iOS Dialog 对短段落用 minimum-raggedness 算法,行宽看起来短。已用"无 bullet 标记 + `\u{2028}` 软换行连入同段"绕过,大段场景能填满,某些短 bullet 仍偏短。这是 iOS 渲染器行为,端不可控,接受现状。
-3. **工作目录脏**:主 App 资源(`AppIcon.icon/`、`Assets.xcassets/AppIcon.appiconset/`、`Onboarding`、`Settings`、`HistoryView`、`HistoryItem`)有未本会话明确触碰的改动,提交前需要梳理。
-4. **`AnalysisDetailView`(历史详情页)**未跟进:它仍用 `Text(LocalizedStringKey)` + `.textSelection(.enabled)`,跟主页的 `SelectableMarkdownText` 不一致。
-5. **`SelectableMarkdownText` 的拖拽未禁**:UITextView 默认允许把选中文字拖到其他 App。在主 App 内不易触发,但严格说也应加 `textDragInteraction.isEnabled = false`。
+3. **`AnalysisDetailView`(历史详情页)**未跟进:它仍用 `Text(LocalizedStringKey)` + `.textSelection(.enabled)`,跟主页的 `SelectableMarkdownText` 不一致。
+4. **`SelectableMarkdownText` 的拖拽未禁**:UITextView 默认允许把选中文字拖到其他 App。在主 App 内不易触发,但严格说也应加 `textDragInteraction.isEnabled = false`。
 
 ## 下一步打算
 
-- 把工作区改动整理成提交(用户决定一次还是分批)
-- 推到 GitHub 远端
 - 决定是否给 `AnalysisDetailView` 换 `SelectableMarkdownText` 保持一致
 - 决定是否给 `SelectableMarkdownText` 关拖拽
 
 ---
 
 ## 会话日志(倒序,最新在上)
+
+### 2026-05-18 (Claude Code)
+
+把 2026-05-17 一整天的工作整理成 3 个 commit 推到 `origin/main`:
+- `86f45b7` 资产更新(AppIcon + logo exports)
+- `91cbed3` 快捷分析功能 + iOS 26 snippet 适配 + 同语言不报错 + 主页 UI 打磨
+- `5a4755e` 项目记忆文件(AGENTS.md + CONTEXT.md)+ ignore `.claude/`
+
+附:删了项目根 `CLAUDE.md`(原 Karpathy 英文版),内容已合并到 `AGENTS.md` 末尾的中文版;Claude Code 改靠 `~/.claude/CLAUDE.md` 全局配置的"先读 AGENTS.md"铁律加载项目规则。
+
+---
 
 ### 2026-05-17 (Claude Code)
 
@@ -85,4 +93,7 @@
 - 起初想用来解黄底,事实无关。但 manifest 本身有用(Apple 隐私清单合规),保留
 
 #### 提交状态
-**全部未提交**,工作目录仍脏。用户偏好:改动后主动询问是否提交+推送。
+**已 push 到 `origin/main`**(于 2026-05-18 完成)。3 个 commit:
+- `86f45b7` Update app icon assets and add logo exports
+- `91cbed3` Add 快捷分析 feature and adapt translation/analysis for iOS 26
+- `5a4755e` Add project memory files and ignore Claude Code worktrees
