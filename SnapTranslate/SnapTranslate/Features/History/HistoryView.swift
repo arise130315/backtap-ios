@@ -5,39 +5,133 @@ struct HistoryView: View {
     @Query(sort: \HistoryItem.createdAt, order: .reverse) private var items: [HistoryItem]
     @Environment(\.modelContext) private var context
 
+    /// 当前选中的类型 tab —— 翻译 / 分析
+    @State private var selectedTab: HistoryItemType = .translation
+    /// 自定义 editMode(用中文「编辑」/「完成」按钮替代 SwiftUI 默认 EditButton 的英文)
+    @State private var editMode: EditMode = .inactive
+
+    init() {
+        // SwiftUI Picker(.segmented) 内的字号由 UISegmentedControl appearance 控制,
+        // SwiftUI 没有 modifier 直接改,只能走 UIKit appearance proxy
+        let font = UIFont.systemFont(ofSize: 14)
+        UISegmentedControl.appearance().setTitleTextAttributes([.font: font], for: .normal)
+        UISegmentedControl.appearance().setTitleTextAttributes([.font: font], for: .selected)
+    }
+
     var body: some View {
-        Group {
-            if items.isEmpty {
+        // 按 tab 过滤后的列表,内部再按时间段分组
+        let filtered = items.filter { $0.type == selectedTab }
+
+        VStack(spacing: 0) {
+            // 系统分段控制器:高度 40,字号 14(字号在 init() UIAppearance 里设);宽度跟随父容器
+            Picker("类型", selection: $selectedTab) {
+                Text("翻译").tag(HistoryItemType.translation)
+                Text("分析").tag(HistoryItemType.analysis)
+            }
+            .pickerStyle(.segmented)
+            .frame(height: 40)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+
+            if filtered.isEmpty {
+                Spacer()
                 ContentUnavailableView(
                     "暂无历史",
                     systemImage: "clock.arrow.circlepath",
-                    description: Text("翻译或分析过的截图会出现在这里")
+                    description: Text(selectedTab == .translation ? "翻译过的截图会出现在这里" : "分析过的截图会出现在这里")
                 )
+                Spacer()
             } else {
                 List {
-                    ForEach(items) { item in
-                        NavigationLink {
-                            destination(for: item)
-                        } label: {
-                            row(for: item)
+                    ForEach(TimeGroup.allCases, id: \.self) { group in
+                        let sectionItems = filtered.filter { Self.timeGroup(for: $0.createdAt) == group }
+                        if !sectionItems.isEmpty {
+                            Section(group.title) {
+                                ForEach(sectionItems) { item in
+                                    NavigationLink {
+                                        destination(for: item)
+                                    } label: {
+                                        row(for: item)
+                                    }
+                                }
+                                .onDelete { offsets in
+                                    deleteItems(in: sectionItems, at: offsets)
+                                }
+                            }
                         }
                     }
-                    .onDelete(perform: delete)
+                }
+                // 隐藏 List 自己的灰色 grouped 背景,统一用外层 systemGroupedBackground
+                .scrollContentBackground(.hidden)
+            }
+        }
+        .background(Color(.systemGroupedBackground)) // 整页底色跟首页一致(浅灰)
+        .navigationTitle("历史记录")
+        // 导航栏背景跟内容区同色,消除视觉断层
+        .toolbarBackground(Color(.systemGroupedBackground), for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            if !items.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(editMode == .active ? "完成" : "编辑") {
+                        withAnimation {
+                            editMode = editMode == .active ? .inactive : .active
+                        }
+                    }
                 }
             }
         }
-        .navigationTitle("历史记录")
-        .toolbar {
-            if !items.isEmpty {
-                EditButton()
+        .environment(\.editMode, $editMode)
+        .animation(.easeInOut(duration: 0.2), value: selectedTab)
+    }
+
+    // MARK: - 时间分组
+
+    /// 备忘录式时间梯度,从近到远。
+    enum TimeGroup: String, CaseIterable {
+        case today
+        case past3Days
+        case past7Days
+        case past30Days
+        case earlier
+
+        var title: String {
+            switch self {
+            case .today:      return "今天"
+            case .past3Days:  return "过去 3 天"
+            case .past7Days:  return "过去 7 天"
+            case .past30Days: return "过去 30 天"
+            case .earlier:    return "更早"
             }
         }
     }
 
+    /// 用「跨日数」分组(按日历日,不按 24h 整时长):
+    /// - 今天 = 同一日历日
+    /// - 过去 3 天 = 1-3 天前(含昨天)
+    /// - 过去 7 天 = 4-7 天前
+    /// - 过去 30 天 = 8-30 天前
+    /// - 更早 = > 30 天
+    private static func timeGroup(for date: Date) -> TimeGroup {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return .today }
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: date),
+            to: calendar.startOfDay(for: Date())
+        ).day ?? 0
+        if days <= 3 { return .past3Days }
+        if days <= 7 { return .past7Days }
+        if days <= 30 { return .past30Days }
+        return .earlier
+    }
+
+    // MARK: - Row / Destination
+
     @ViewBuilder
     private func row(for item: HistoryItem) -> some View {
         HStack(spacing: 12) {
-            // 缩略图统一用原图(两种类型都有)
             if let thumb = item.originalImage {
                 Image(uiImage: thumb)
                     .resizable()
@@ -91,9 +185,13 @@ struct HistoryView: View {
         }
     }
 
-    private func delete(at offsets: IndexSet) {
+    // MARK: - 删除
+
+    /// onDelete 给的 offsets 是 section 内 sectionItems 数组的索引,
+    /// 通过 sectionItems[index] 拿到具体 HistoryItem 后,从 SwiftData context 删除。
+    private func deleteItems(in sectionItems: [HistoryItem], at offsets: IndexSet) {
         for index in offsets {
-            context.delete(items[index])
+            context.delete(sectionItems[index])
         }
     }
 }

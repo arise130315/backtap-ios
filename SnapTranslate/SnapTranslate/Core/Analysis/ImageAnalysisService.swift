@@ -18,8 +18,10 @@ enum ImageAnalysisService {
     /// - Parameters:
     ///   - imageData: 截图二进制(任何常见格式都行,会被 base64 编码进 data URL)
     ///   - settings: API 配置
+    ///   - truncate: true 时 sanitize 会把超过 250 字符的结果截断 + 加 …(给 AppIntent Dialog 用);
+    ///     false 时返回完整 LLM 输出(主 App ScrollView 自己滚动展示)
     /// - Returns: Markdown 文字,形如 "**内容**\n...\n\n**要点**\n- ...\n- ..."
-    static func analyze(imageData: Data, settings: Settings) async throws -> String {
+    static func analyze(imageData: Data, settings: Settings, truncate: Bool = true) async throws -> String {
         guard !settings.apiKey.isEmpty,
               settings.apiKey != "PASTE_YOUR_QWEN_API_KEY_HERE" else {
             throw AnalysisError(message: "图片分析 API Key 未配置。请在 Secrets.swift 填入,或在「设置 → 图片分析」切换到自定义引擎填写。")
@@ -110,11 +112,12 @@ enum ImageAnalysisService {
             throw AnalysisError(message: "响应无 content")
         }
 
-        return try sanitize(raw)
+        return try sanitize(raw, truncate: truncate)
     }
 
     /// 清洗 LLM 偶发的格式偏差:剥代码块包裹 / 引导语 / 字数兜底 / 格式校验。
-    private static func sanitize(_ raw: String) throws -> String {
+    /// - Parameter truncate: 是否对超过 250 字符截断(AppIntent Dialog 走 true,主 App 走 false)
+    private static func sanitize(_ raw: String, truncate: Bool) throws -> String {
         var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // 剥 ```markdown 或 ``` 代码块包裹
@@ -140,8 +143,8 @@ enum ImageAnalysisService {
             throw AnalysisError(message: "分析结果格式异常,请重试或更换图片。")
         }
 
-        // 字数兜底
-        if s.count > 250 {
+        // 字数兜底(仅 truncate=true 时启用,主 App 不截断让 ScrollView 完整显示)
+        if truncate, s.count > 250 {
             s = String(s.prefix(250)) + "…"
         }
 

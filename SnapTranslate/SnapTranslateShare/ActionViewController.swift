@@ -26,7 +26,7 @@ class ActionViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        navigationItem.title = "快捷翻译"
+        navigationItem.title = "快捷识屏"
 
         // 在主视图叠一个 statusLabel,处理过程中显示
         view.addSubview(statusLabel)

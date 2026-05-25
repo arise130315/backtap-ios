@@ -11,17 +11,37 @@ import SwiftData
 @main
 struct SnapTranslateApp: App {
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    @State private var showSplash = true
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .fullScreenCover(isPresented: Binding(
-                    get: { !hasSeenOnboarding },
-                    set: { _ in }
-                )) {
+            ZStack {
+                // 主界面
+                ContentView()
+
+                // Onboarding:改用 ZStack 叠加 + 自定义 transition,
+                // 解除时向左滑出(替代 fullScreenCover 默认"向下收起")
+                if !hasSeenOnboarding && !showSplash {
                     OnboardingView()
-                        .interactiveDismissDisabled()
+                        .transition(.asymmetric(
+                            insertion: .opacity, // splash 渐隐完淡入显示
+                            removal: .move(edge: .leading) // 用户左滑触发关闭时,整页向左滑出
+                        ))
+                        .zIndex(2)
                 }
+
+                // 启动页:每次冷启动显示 2.5 秒,渐隐消失
+                if showSplash {
+                    SplashView()
+                        .transition(.opacity)
+                        .task {
+                            try? await Task.sleep(for: .seconds(2.5))
+                            withAnimation(.easeOut(duration: 0.4)) {
+                                showSplash = false
+                            }
+                        }
+                }
+            }
         }
         .modelContainer(for: HistoryItem.self)
     }

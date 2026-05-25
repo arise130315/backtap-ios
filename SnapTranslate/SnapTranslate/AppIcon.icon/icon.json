@@ -6,7 +6,11 @@
     {
       "layers" : [
         {
-          "fill" : "automatic",
+          "image-name" : "Frame 1912055573.png",
+          "name" : "Frame 1912055573"
+        },
+        {
+          "fill" : "none",
           "glass" : true,
           "hidden-specializations" : [
             {
@@ -14,24 +18,37 @@
               "value" : false
             }
           ],
-          "image-name" : "1 3.png",
-          "name" : "1 3"
+          "image-name" : "Frame 1912055571.png",
+          "name" : "Frame 1912055571"
         },
         {
-          "image-name" : "2 6.png",
-          "name" : "2 6"
+          "glass" : false,
+          "hidden-specializations" : [
+            {
+              "idiom" : "square",
+              "value" : false
+            }
+          ],
+          "image-name" : "Frame 1912055574.png",
+          "name" : "Frame 1912055574"
         },
         {
-          "image-name" : "bg 2.png",
-          "name" : "bg 2"
+          "fill" : "automatic",
+          "image-name" : "Frame 1912055575.png",
+          "name" : "Frame 1912055575"
+        },
+        {
+          "image-name" : "Frame 1912055566.png",
+          "name" : "Frame 1912055566"
         }
       ],
+      "lighting" : "individual",
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5
       },
       "translucency" : {
-        "enabled" : true,
+        "enabled" : false,
         "value" : 0.5
       }
     }

@@ -14,15 +14,17 @@ enum AnalysisPipeline {
     /// - Parameters:
     ///   - imageData: 输入图片数据
     ///   - settings: 多模态 LLM 配置(baseURL/apiKey/model)
+    ///   - truncate: 见 `ImageAnalysisService.analyze`,AppIntent 默认 true,主 App 传 false
     /// - Returns: Markdown 格式的分析文字 + 渲染好的原图(供历史保存)
     static func run(
         imageData: Data,
-        settings: ImageAnalysisService.Settings
+        settings: ImageAnalysisService.Settings,
+        truncate: Bool = true
     ) async throws -> (image: UIImage, analysisText: String) {
         guard let image = UIImage(data: imageData) else {
             throw PipelineError.invalidImage
         }
-        let text = try await ImageAnalysisService.analyze(imageData: imageData, settings: settings)
+        let text = try await ImageAnalysisService.analyze(imageData: imageData, settings: settings, truncate: truncate)
         return (image, text)
     }
 }
