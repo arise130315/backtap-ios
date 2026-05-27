@@ -27,4 +27,24 @@ enum AnalysisPipeline {
         let text = try await ImageAnalysisService.analyze(imageData: imageData, settings: settings, truncate: truncate)
         return (image, text)
     }
+
+    /// 流式版本(主 App 内 ScrollView 用),立刻返回 image 跟一个 AsyncThrowingStream。
+    /// stream 每次 yield 都是当前累计完整文本(直接赋给 SwiftUI @State 即可),
+    /// 最后一次 yield 是 sanitize 后的干净文本。出错通过 stream 抛 throw 向上传。
+    static func runStream(
+        imageData: Data,
+        settings: ImageAnalysisService.Settings,
+        truncate: Bool = false
+    ) throws -> StreamRun {
+        guard let image = UIImage(data: imageData) else {
+            throw PipelineError.invalidImage
+        }
+        let stream = ImageAnalysisService.analyzeStream(imageData: imageData, settings: settings, truncate: truncate)
+        return StreamRun(image: image, stream: stream)
+    }
+
+    struct StreamRun {
+        let image: UIImage
+        let stream: AsyncThrowingStream<String, Error>
+    }
 }

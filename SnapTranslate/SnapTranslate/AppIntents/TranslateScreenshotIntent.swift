@@ -10,9 +10,15 @@ struct TranslateScreenshotIntent: AppIntent {
     static let openAppWhenRun: Bool = false
 
     @Parameter(title: "截图")
-    var image: IntentFile
+    var image: IntentFile?
 
     func perform() async throws -> some IntentResult & ShowsSnippetView {
+        // 用户在「快捷指令」App 内直接点动作卡片(没拍截图作为输入)会走到这里——
+        // 给一个引导文案,替代系统默认的"无法解析图片"错误。
+        guard let image else {
+            throw SnapTranslateIntentError.missingImage
+        }
+
         // 翻译结果是一张图,纯 Dialog 装不下;iOS 26 给所有 ShowsSnippetView 都加了黄底+禁用图标
         // 的"未经验证第三方 UI"警告,Dialog + Snippet 组合也救不回来。两害相权,保留 snippet 体验,
         // 接受黄底——预览图片的丝滑感比一层警告更重要。

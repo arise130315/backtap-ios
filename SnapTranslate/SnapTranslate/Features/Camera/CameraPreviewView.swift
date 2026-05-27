@@ -6,12 +6,18 @@
 //  通过 UIViewRepresentable 实现,view.layer 直接是 AVCaptureVideoPreviewLayer
 //  (覆盖 UIView.layerClass 让根 layer 就是预览 layer,避免嵌套层级。)
 //
+//  videoRotationAngle 由父 view 按 device orientation 算好传入,
+//  让预览方向跟拍照(CameraSessionManager.capturePhoto)用同一套角度——
+//  横拿手机时预览跟拍出来的图都是 landscape,翻译方向才能正确。
+//
 
 import SwiftUI
 import AVFoundation
 
 struct CameraPreviewView: UIViewRepresentable {
     let session: AVCaptureSession
+    /// 由父 view 按 UIDevice.current.orientation 算好,见 CameraSessionManager.videoRotationAngle(for:)
+    let videoRotationAngle: CGFloat
     /// 用户点击预览层时回调,参数是归一化设备坐标(0..1, 0..1),可直接传给 AVCaptureDevice.focusPointOfInterest
     var onTap: ((CGPoint) -> Void)? = nil
 
@@ -19,16 +25,21 @@ struct CameraPreviewView: UIViewRepresentable {
         let view = PreviewContainerView()
         view.setSession(session)
         view.onTap = onTap
+        view.setVideoRotationAngle(videoRotationAngle)
         return view
     }
 
     func updateUIView(_ uiView: PreviewContainerView, context: Context) {
         uiView.onTap = onTap
+        uiView.setVideoRotationAngle(videoRotationAngle)
     }
 }
 
 final class PreviewContainerView: UIView {
     var onTap: ((CGPoint) -> Void)?
+    /// 缓存待应用的旋转角度。makeUIView/updateUIView 调用 setVideoRotationAngle 时,
+    /// session.connection 可能还没准备好(input 没添加完),layoutSubviews 兜底再设一次。
+    private var pendingVideoRotationAngle: CGFloat = 90
 
     override class var layerClass: AnyClass {
         AVCaptureVideoPreviewLayer.self
@@ -52,13 +63,7 @@ final class PreviewContainerView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // session connection 建立后(input 添加完)设 portrait 旋转角度,
-        // 不设的话默认显示传感器横向画面,在竖屏 view 里被压成"偏一侧"的画面
-        if let connection = previewLayer.connection,
-           connection.isVideoRotationAngleSupported(90),
-           connection.videoRotationAngle != 90 {
-            connection.videoRotationAngle = 90
-        }
+        applyPendingRotation()
     }
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
@@ -70,5 +75,17 @@ final class PreviewContainerView: UIView {
     func setSession(_ session: AVCaptureSession) {
         previewLayer.session = session
         previewLayer.videoGravity = .resizeAspectFill
+    }
+
+    func setVideoRotationAngle(_ angle: CGFloat) {
+        pendingVideoRotationAngle = angle
+        applyPendingRotation()
+    }
+
+    private func applyPendingRotation() {
+        guard let connection = previewLayer.connection,
+              connection.isVideoRotationAngleSupported(pendingVideoRotationAngle),
+              connection.videoRotationAngle != pendingVideoRotationAngle else { return }
+        connection.videoRotationAngle = pendingVideoRotationAngle
     }
 }

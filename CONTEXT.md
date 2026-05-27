@@ -11,9 +11,23 @@
 
 **Commit `1215c7a` 已 push 到 `origin/main`**(2026-05-26):71 files +1889 -350,涵盖 5/19~5/26 全部积压工作。详见 README 般的 commit message 跟下方会话日志。
 
+**新增改动(2026-05-26 下午,未 commit)**:CameraCaptureSheet 支持横屏拍摄,修复"横拿手机拍横向显示器,翻译被竖排"问题。
+
+**新增改动(2026-05-26 晚上,未 commit)**:SplashView 适配暗色模式 —— 文字 SVG 提供 dark 版本,背景纯黑,左上光晕换品牌绿。
+
+**新增改动(2026-05-27,未 commit)**:首页两个 tab 的空状态在 img_none 下方各加一句场景文案,降低用户首次认知成本。
+
+**新增改动(2026-05-27,未 commit)**:新增 `SnapTranslateAppShortcuts`(AppShortcutsProvider),把两个 Intent 注册到系统级,用户无需 iCloud 链接也能在快捷指令/Spotlight/Siri 里发现「快捷翻译」「快捷分析」动作。
+
+**新增改动(2026-05-27,未 commit)**:两个 Intent 的 `image` 参数改 Optional + 友好错误引导。修掉用户在快捷指令 App 内直接点动作卡片时看到的冷冰冰"无法解析图片"系统错误,替代为引导回主 App 一键导入完整流程的中文文案。
+
+**新增改动(2026-05-27,未 commit)**:新增 `BackTapTutorialSheet`,把首页「轻点背面 → 绑定」按钮从"跳本 App 设置页(没用)"改成"弹出 3 步图文教学 sheet"。视频占位待真机录制后替换。
+
+**新增改动(2026-05-27,未 commit)**:用户在快捷指令 App 内把两条 Shortcut 改名「翻译截图」→「识屏翻译」、「分析截图」→「识屏分析」并重新分享,`ContentView.swift:94-95` 的两个 iCloud Shortcut URL 已同步更新为新链接。
+
 ## 正在做什么
 
-阶段性收尾。等用户真机回归测试上一批改动 + 反馈下一轮需求方向。
+横屏拍摄、Splash 暗色适配、首页空状态场景文案、AppShortcutsProvider 注册、Intent 缺图引导、轻点背面教学 sheet 已落地待真机验证。
 
 ## 未解决的问题 / 卡点
 
@@ -30,6 +44,416 @@
 ---
 
 ## 会话日志(倒序,最新在上)
+
+### 2026-05-27 (Claude Code - 新增轻点背面教学半屏 sheet)
+
+**背景**:首页底部 `actionsGroup` 的「轻点背面 → 绑定」按钮之前直接跳 `UIApplication.openSettingsURLString` —— 这个 API 只能跳到本 App 自己的设置页(权限/隐私),**跳不到「辅助功能 → 触控 → 轻点背面」子页面**。iOS 不允许 deeplink 到系统设置任意子页面(`App-Prefs:` 私有 URL 早就被禁,审核会拒)。用户点了"绑定"看到本 App 设置页会一脸懵。
+
+**改动**:
+- 新增文件 `Features/Onboarding/BackTapTutorialSheet.swift`(~110 行):
+  - NavigationStack + ScrollView 撑 3 个步骤卡
+  - 每个步骤卡:浅灰圆角矩形 16:9 视频占位(`secondarySystemGroupedBackground` + `play.rectangle` 图标) + 蓝底圆形数字 ①②③ + 文字
+  - 步骤文案:
+    - ① 打开「设置」→「辅助功能」
+    - ② 选「触控」→「轻点背面」→「轻点两下」
+    - ③ 选中你保存的「快捷翻译」或「快捷分析」
+  - 底部 `safeAreaInset` 挂主按钮「打开系统设置」(蓝色 capsule, 50pt 高,跳 `openSettingsURLString`) + 次按钮「稍后再说」
+  - 顶栏右上 `xmark` 关闭按钮(裸 xmark + iOS 26 自动 toolbar capsule,跟 Safari/邮件系统 App 一致 —— 之前用 `xmark.circle.fill` 会跟系统 toolbar 背景叠成"2 层圆",已修)
+  - `.presentationDetents([.large])` 全屏 sheet,内容多用滚动看
+- 改 `ContentView.swift`:
+  - 加 `@State private var showBackTapTutorial = false`
+  - body 末尾追加 `.sheet(isPresented: $showBackTapTutorial) { BackTapTutorialSheet() }`(挂在 `.sheet(isPresented: $showingDetail)` 后面)
+  - `backTapRow` 内 Button action 从 `UIApplication.shared.open(openSettingsURLString)` 改成 `showBackTapTutorial = true`
+
+**为什么 sheet 里仍保留「打开系统设置」按钮**:虽然 deeplink 只能跳本 App 设置页,但用户先看完 3 步图文教学后**已经知道接下来要去辅助功能 → 触控 → 轻点背面**,跳过去不再懵。从认知断层变成认知传递。
+
+**视频占位待替换**:目前是浅灰圆角矩形 + 播放图标。下次真机录 3 段 GIF/MP4(每段 5-8 秒,各演示一步)后替换 `Image(systemName: "play.rectangle")` 为 `LoopingVideoPlayer` 或 `VideoPlayer`。可以复用现有的 `LoopingVideoPlayer.swift`。
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`,无新增 warning(只有原有的 AppIntents metadata + UIScreen.main deprecated 两条历史 warning)。
+
+**下次接着**:用户真机验证 ——
+1. 主页底部「轻点背面 → 绑定」按钮 → 应该弹半屏 sheet 而不是跳设置页
+2. sheet 内 3 个步骤卡视觉(浅灰 + 数字 + 文字)是否舒服
+3. 「打开系统设置」按钮跳出去后能否手动找到「辅助功能 → 触控 → 轻点背面」
+4. 验证完决定:开始准备视频素材,还是先做 UserDefaults flag + 首次成功庆祝(需要 App Group capability)
+
+### 2026-05-27 (Claude Code - Intent 缺图引导,修掉"无法解析图片"劝退)
+
+**背景**:AppShortcutsProvider 生效后,「快捷翻译」「快捷分析」两个动作卡片出现在快捷指令 App 内,但用户在快捷指令 App 内**直接点**这些卡片时,会触发系统错误"无法解析图片"——因为两个 Intent 都要求 `image: IntentFile` 必传参数,直接点没有截图输入。这个错误对新用户是劝退的,看不懂、像 bug。
+
+**真实约束**:iOS 不允许第三方 App 在 Intent 内主动截屏(隐私限制)。所以这两个动作**本来就只能**配合系统动作"拍摄屏幕快照"组成复合 Shortcut 用,不是给用户直接点的。但快捷指令 App 没办法阻止用户点,所以我们要把这个意外路径的错误体验做好。
+
+**改动**:
+- 新增 `AppIntents/IntentErrors.swift`(~20 行):
+  - `enum SnapTranslateIntentError: Error, CustomLocalizedStringResourceConvertible`
+  - case `.missingImage`,localizedStringResource 中文文案引导用户回主 App 一键导入
+- 改 `TranslateScreenshotIntent.swift`:
+  - `@Parameter(title: "截图") var image: IntentFile?`(从必填改 Optional)
+  - perform() 开头加 `guard let image else { throw SnapTranslateIntentError.missingImage }`
+- 改 `AnalyzeScreenshotIntent.swift`:同样改动
+
+**为什么用 throw 而不是返回带引导的 Snippet/Dialog**:
+- `ShowsSnippetView` 的返回类型固定,nil 时返回别的类型会破坏方法签名兼容性
+- iOS 对 `CustomLocalizedStringResourceConvertible` 错误的 throw 有标准处理:系统 alert 直接显示中文描述,体验跟 Dialog 接近
+- 代码改动最小
+
+**兼容性**:
+- 既有 iCloud Shortcut 是 [拍摄屏幕快照 → 我们的 Intent],会把真实截图传进来,走 guard let 之后的原逻辑,**无破坏**
+- 新建的 Shortcut 没填 image 参数的情况,系统会自动用上游步骤输出填充。如果用户**手动跳过**这一步,就会走到 throw 路径,看到引导文案
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`。
+
+**下次接着**:用户真机验证 ——
+1. 打开「快捷指令」App,资料库找到「快捷识屏」分组下的动作卡片
+2. 直接点「快捷翻译」或「快捷分析」 → 应该看到中文引导文案,而不是"无法解析图片"
+3. 用之前 iCloud 导入的完整 Shortcut(含拍摄屏幕快照)触发 → 应该跟之前一样正常翻译/分析
+4. 验证完决定下一步:第 3 步(教学半屏 sheet)还是第 2 步(UserDefaults flag + 首次成功庆祝)
+
+### 2026-05-27 (Claude Code - 新增 AppShortcutsProvider 系统级注册)
+
+**背景**:之前用户必须点 iCloud Shortcut 链接才能在快捷指令 App 里看到本 App 的两个动作。门槛高、流失大。iOS 16+ 提供 `AppShortcutsProvider` 协议,把 Intent 注册到系统级后,用户安装 App 即可在「快捷指令」App 的「应用」分类、Spotlight 搜索、Siri 里直接发现。
+
+**新增文件**:`AppIntents/SnapTranslateAppShortcuts.swift`(~40 行)
+- `struct SnapTranslateAppShortcuts: AppShortcutsProvider`
+- 注册 `TranslateScreenshotIntent` (shortTitle "快捷翻译", systemImage `text.viewfinder`)
+- 注册 `AnalyzeScreenshotIntent` (shortTitle "快捷分析", systemImage `wand.and.sparkles`)
+- 每个 Intent 给 3 条 phrase,全部含 `\(.applicationName)` 占位符(框架硬要求,缺了编译报错)
+- 运行时 `applicationName` 会被替换成 App 显示名「快捷识屏」
+
+**为什么 phrases 不能直接对 Siri 喊**:两个 Intent 都有 `image: IntentFile` 必传参数,Siri 没法自动拍当前屏幕截图。所以 phrases 主要服务:
+1. 用户拼复合 Shortcut 时在「快捷指令 → 应用 → 快捷识屏」分类下能搜到
+2. Spotlight 搜索时显示动作卡片
+
+**iCloud 链接保留**:作为新手"一键导入完整复合 Shortcut(含拍摄屏幕快照 + 调用本 Intent)"的最短路径。AppShortcutsProvider 没法预填"拍摄屏幕快照"这个上游步骤,所以两者并存。
+
+**未改动 pbxproj**:项目用 Xcode 16+ 的 `PBXFileSystemSynchronizedRootGroup`,AppIntents/ 目录下新增 .swift 自动入主 App target 编译,Share Extension target 通过 `membershipExceptions` 没引用(也不需要)。
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`,无 warning。
+
+**下次接着**:用户真机测试 ——
+1. 卸载重装本 App,打开「快捷指令」App → 应用 → 应该能找到「快捷识屏」分类,展开看到两个动作
+2. Spotlight 搜「快捷翻译」/「快捷分析」应该能直接看到动作卡片
+3. 对 Siri 说「用快捷识屏翻译屏幕」会进入 Intent,但因为缺 image 参数会失败(预期行为,这是 phrases 提升发现度的副作用)
+4. 验证完决定下一步:是否还要做方案 B(配置进度卡片 + UserDefaults flag 检测首次成功)
+
+### 2026-05-27 (Claude Code - 首页空状态加场景文案)
+
+**需求**:用户希望首页两个 tab 的空状态(img_none 占位图)下方各加一句具体场景文案,降低用户首次进入时"这个 tab 用来干嘛"的认知成本。文案灰色、字号 14。
+- 翻译:"翻译外文 App,海外网页,游戏菜单"(中文逗号分隔)
+- 分析:"解题、读截图、识万物"(顿号分隔)
+
+**改动文件 `ContentView.swift`**:
+- `imageArea`(翻译空状态,L255 附近):原来直接是 `Image("img_none").opacity(0.9)`,改成 `VStack(spacing: 12) { Image + Text }`。Text 用 `.font(.system(size: 14))` + `.foregroundStyle(.secondary)`(系统次要灰,自适应深浅色)。
+- `analysisArea`(分析空状态,L358 附近):同样改造。原来 Image 自身带 `.frame(maxWidth: .infinity, maxHeight: .infinity)`,改造后 frame 移到外层 VStack 上,保留撑满空间的语义。
+
+**选择 `.secondary` 而非 `Color.gray`**:`.secondary` 在深色模式自动反相成浅灰,纯 `.gray` 在深色背景下偏暗看不清。SwiftUI 标准做法。
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`。
+
+**下次接着**:用户真机看视觉效果,如果字距/颜色/Spacing 要调再回来微调。
+
+### 2026-05-26 晚上 第 2 轮 (Claude Code - SplashView 适配暗色模式)
+
+**需求**:启动页 100% 还原 Figma 暗色稿(node 2085-13600)。设计稿两张:亮色保持原有,暗色背景反黑、主标语文字反白、底部「快捷识屏」文字反白,装饰彩色(粉、蓝、绿)保持不变。
+
+**方案**:不动 SwiftUI 代码逻辑,通过 Assets.xcassets 的 appearances 字段提供 dark 资源 + 在 SplashView 里用 `@Environment(\.colorScheme)` 切换背景色和光晕色。
+
+**改动文件**:
+- 新增 `Assets.xcassets/BrandSlogan.imageset/brand-slogan-dark.svg`:复制亮色版本,把所有 `#0B0B0D`(文字黑)替换为 `#FFFFFF`,装饰色全保留(粉 #F2A1C1 / 蓝系 #466EB9 #5877C0 #5E7CC0 / 绿系 #5BAA68 #D2E08D 等)。
+- 新增 `Assets.xcassets/SplashBrandText.imageset/splash-brand-text-dark.svg`:同样把「快捷识屏」4 个字的 `#0B0B0D` 替换为 `#FFFFFF`。
+- 改 `BrandSlogan.imageset/Contents.json` 和 `SplashBrandText.imageset/Contents.json`:加 `appearances: [{appearance: luminosity, value: dark}]` 第二份 image 引用 dark 资源。
+- 改 `Features/Splash/SplashView.swift`:
+  - 加 `@Environment(\.colorScheme) private var colorScheme`
+  - 背景:浅色 `.white` / 暗色 `.black`
+  - 右上青色光晕 #00FDED:浅色 opacity 0.20 / 暗色 0.08(暗色下几乎不可见,符合截图观察)
+  - 左上光晕:浅色保留浅蓝 #E1ECFF @100% / 暗色换成品牌绿 #5BAA68 @18%(呼应底部 logo)
+  - `#Preview` 加 Light/Dark 两份方便预览。
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`。
+
+**注意/留尾**:
+- Figma 插件连接当前不可用(`connection.create` 报 "Not connected to relay"),暗色版光晕的精确色值是根据用户提供的截图肉眼推测的(深绿+品牌绿低透明度)。如果跟 Figma 设计稿差距明显,可再调 `SplashView.swift` 内的两个 opacity / 颜色常量,改动很小。
+- 未跑模拟器视觉对比,只过了编译。下次可以打开模拟器切深色模式实测。
+
+**下次接着**:用户真机切深浅外观看看 Splash 效果是否符合预期,有偏差再调光晕参数。
+
+### 2026-05-26 晚上 (Claude Code - 端内翻译改用 Apple Translation Framework)
+
+**需求**:把端内翻译(拍照翻译、选图翻译)默认模型从 DeepSeek LLM 改成 **Apple Translation Framework**(iOS 17.4+,本地翻译,免费/离线)。端外 AppIntent(轻点背面)继续走 LLM 不动。
+
+**实现思路(实证后的最终方案)**:
+Apple Translation API 不是普通函数调用,必须在 SwiftUI view 里通过 `.translationTask(_:perform:)` 触发。设计成:
+1. `@State translationConfiguration: TranslationSession.Configuration?` 控制触发
+2. `@State pendingTranslation: PendingTranslation?` 暂存待翻译数据(view 闭包跟 dispatch 之间中转)
+3. body 末尾 `.translationTask(translationConfiguration) { session in await performAppleTranslation(session:) }`
+4. dispatch 时:builtin 走 `triggerAppleTranslation` 设 config 触发 task;llm 不变
+
+**改动文件 `ContentView.swift`**:
+- `import Translation`
+- 新增 3 个 state:`translationConfiguration` / `pendingTranslation` / 私有 `PendingTranslation` struct(`original` / `results` / `target`)
+- body 末尾加 `.translationTask(translationConfiguration) { session in await performAppleTranslation(session: session) }`
+- `dispatchTranslation` 的 `.builtin` 分支改成调 `triggerAppleTranslation(...)`(不 await,通过 @State 触发);`.llm` 分支不变
+- 新增 `triggerAppleTranslation(original:results:)`:把数据塞 pendingTranslation,根据 target 是否变化决定 set 新 config 还是 `invalidate()` 旧 config 重跑
+- 新增 `performAppleTranslation(session:)`:enumerate OCRResults 构造 `TranslationSession.Request`(`clientIdentifier` 用 index),`session.translations(from:)` batch 翻译,按 clientIdentifier 排序还原顺序,渲染译图;失败时回退到原 `runBuiltinTranslation`(DeepSeek)
+
+**端外路径完全没动**:
+- `AppIntents/TranslateScreenshotIntent.swift` 继续 `LLMTranslationService.Settings`
+- `Core/Translation/TranslationPipeline.swift` 继续 `LLMTranslationService.translate`
+- 端外 Dialog 渲染管线复杂,不引入 Apple Translation 风险
+
+**回退策略**:Apple Translation `throw` 时(用户拒绝下载语言包 / 网络问题 / 不支持的语言对)→ 自动调 `runBuiltinTranslation`(原 builtin LLM 路径,DefaultModelConfig.settings = DeepSeek),保证用户体验不中断。
+
+**首次体验**:用户第一次拍照翻译时,Apple Translation 会弹系统对话框"下载 English 翻译?",允许后下载几秒,之后离线秒翻。我们没做预热,用户首次有一次系统弹窗,可接受。
+
+**设置 UI 不变**:翻译引擎 Picker 仍是「默认模型 / 自定义」,「默认模型」底层从 DeepSeek 透明切换到 Apple Translation。
+
+**踩坑(已修)**:`Configuration.invalidate()` 是 mutating method,不能在 `let current` 上调,要直接在 @State 上 optional chain:`translationConfiguration?.invalidate()`。
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`。
+
+**下次接着**:用户真机测试:
+- 第一次拍照翻译 → 看系统下载语言包弹窗 + 允许后翻译速度
+- 后续翻译 → 应该完全离线秒出
+- 切换目标语言 → 走新 configuration,可能再次触发下载弹窗(目标语言变了)
+- 拒绝下载语言包 → 应该回退到 DeepSeek
+- 自定义引擎(.llm)→ 不动,继续 LLM
+
+### 2026-05-26 下午 第 7 轮 (Claude Code - 修复选图分析 HTTP 400 + 卡片图片留白)
+
+#### 1. 选图分析 HTTP 400 慢 + 失败
+
+**用户反馈**:从相册选图分析特别慢、最后 HTTP 400 报错。翻译模式正常(因为翻译用本地 OCR 不发图给 API)。
+
+**根因**:两条分析路径处理不一致:
+- **拍照分析** `processCapturedImage`:有降采样 + JPEG(`downsample(maxDimension: 2048)` + `jpegData(0.85)`)→ ~1.5-2MP ✓
+- **相册选图** `loadImageForAnalyze`:直接把原始 `Data` 传给 `AnalysisPipeline.runStream`,**没有降采样**
+
+进入 `ImageAnalysisService.encodeImageDataURL` 后又**优先用 PNG**(无损,iPhone 12MP 原图 PNG 编码 20-50MB,base64 1.33x = 30-65MB)。超过 LLM API payload 限制(Qwen3-VL 通常 5-10MB,GPT-4o 20MB)→ HTTP 400。
+
+**修复**:把降采样 + JPEG 兜底放在 `ImageAnalysisService.encodeImageDataURL` 内部,让所有 call site(主 App / AppIntent / Share Extension)无脑安全。
+
+**改动文件 `Core/Analysis/ImageAnalysisService.swift`**:
+- `encodeImageDataURL(_:)` 内部新增:
+  1. `UIImage(data:)` 解码
+  2. `downsample(_, maxDimension: 2048)` 缩到最大边 2048pt
+  3. `jpegData(compressionQuality: 0.85)` 优先(PNG 改成 fallback)
+- 新增 private static `downsample(_:maxDimension:)`,跟 ContentView 里那个逻辑一致,service 自包含不依赖 ContentView
+
+**好处**:
+- 选图分析也安全(本来的 bug)
+- 拍照分析多一次 short-circuit downsample(原图已经 ≤2048 直接返回,无 perf 影响)
+- AppIntent 端外路径也安全
+- ContentView 的两处 downsample 可以保留(double 处理无害,做防御性深度)
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`。
+
+#### 2. 卡片图片四周留 16pt
+
+**用户反馈**:卡片里的图片贴到卡片左/右边缘。
+
+**改动 `ContentView.swift` `imageArea`**:Group 后面、`.frame` 之前加 `.padding(16)`。X 按钮 overlay 在 padding 外层,仍贴卡片右上角(不跟图片内移)。
+
+**未动 analysisArea**:它的 SelectableMarkdownText 已经有 `padding(.horizontal, 16)`,img_none 空状态没 padding,如果用户希望两个 tab 一致再加。
+
+### 2026-05-26 下午 第 6 轮 (Claude Code - 修复拍照 UIImage 180° 颠倒)
+
+**用户反馈**:第 5 轮预览方向对了,但**点击拍照后显示的 UIImage 顺时针 180° 颠倒**("上方间距太大了"中文 upside down)。
+
+**根因**:第 5 轮只让 preview 用 swap mapping(landscapeLeft=0),capture 仍用 Apple 标准映射(landscapeLeft=180)。两者差 180° → preview 跟 capture 输出 UIImage 方向不一致。
+
+PhotoDisplayView 显示 capturePhoto 输出的 UIImage,UIImage 内容方向取决于 capture angle。若用 Apple 标准 180,UIImage 顶在 image y=large(底);经 PhotoDisplayView aspectFill(顶 align view y=0)+ sheet rotation 90° CW,image 顶最终对应 user 视角"下" → 颠倒。
+
+**修复**:让 capture 用跟 preview 一样的 swap mapping。`CameraSessionManager.videoRotationAngle(for:)` 静态映射直接改成 swap 值,preview 跟 capture 都通过它读 angle。
+
+**改动文件**:
+1. **`CameraSessionManager.swift:131`** `videoRotationAngle(for:)` static:
+   - landscapeLeft: 180 → **0**
+   - landscapeRight: 0 → **180**
+   - portrait / upsideDown 不变
+2. **`CameraCaptureSheet.swift`** `previewVideoRotationAngle` 简化成直接调 `CameraSessionManager.videoRotationAngle(for: camera.deviceOrientation)`,删除重复的 switch
+
+**为什么 swap 跟 Apple 标准相反**:实证。SwiftUI rotationEffect 把 sheet 整个 view(包括 preview layer)transform,Apple 标准 angle 是"interface rotation 跟 device 同步"时的取值,我们 portrait-only + 手动 rotationEffect 跟它差了 180°。
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`。
+
+**风险点**:UIImage 方向变了,OCR / 渲染链路理论上仍 work(Vision 自动 detect image orientation),但需要真机验证横拿翻译是否正确(boundingBox 水平 + 译文水平)。
+
+**下次接着**:用户横拿真机测试:
+1. 预览方向 ✓(上轮验证)
+2. 拍照后 UIImage 方向 → 跟预览一致(本轮修复)
+3. OCR 识别 + 翻译显示 → 水平译文(待验证)
+
+### 2026-05-26 下午 第 5 轮 (Claude Code - 修复预览 90° 偏移)
+
+**用户反馈**:第 4 轮 chrome 方向已经对(debug overlay 确认 `3 landscapeLeft rot=90°`),但**预览内容顺时针 90° 偏移**(显示器横向文字在预览里变成垂直)。
+
+**根因**:`AVCaptureVideoPreviewLayer` 是 view 的 root layer,跟 view 一起被 SwiftUI rotationEffect transform。`videoRotationAngle = 90`(fixed)在 sheet rotate 90° CW 之后,两者叠加 90+90=180° → preview 显示方向跟用户视角差 90° CW。
+
+**修复**:`previewVideoRotationAngle` 按 device orientation 给一个**补偿值**,让 video angle + sheet rotation 后净 effect 跟用户视角正立:
+- portrait:    sheet 0°  + video 90 = 90 (portrait 正立 baseline)
+- landscapeLeft:  sheet +90° CW + video 0 = 90 ✓
+- landscapeRight: sheet -90° CW + video 180 = 90 ✓
+- upsideDown:  sheet 180° + video 270 = 90 ✓
+
+简化记忆:相对原 `CameraSessionManager.videoRotationAngle(for:)` 的 landscape 两个值**对调**(landscapeLeft 用 landscapeRight 的 video angle,反之亦然)。
+
+**为什么 capturePhoto 不需要这个补偿**:capturePhoto 输出的 UIImage 不经过 sheet rotation transform(直接从 photo output 拿 raw pixel buffer),所以 angle 仍按 `CameraSessionManager.videoRotationAngle(for:)` 的标准映射,产出 properly-oriented UIImage 给 OCR 用。
+
+**改动文件**:
+- **`CameraCaptureSheet.swift`** `previewVideoRotationAngle` 从 `{ 90 }`(固定)改成 switch(按 device orientation 返回补偿值)
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`。
+
+**踩坑反思(写给下次自己)**:`AVCaptureVideoPreviewLayer` 跟普通 CALayer 一样被 SwiftUI rotationEffect transform。`videoRotationAngle` 是 layer 内 video frame 的 rotation,这两个 rotation 叠加。设计 sheet rotation + preview rotation 时必须把它们当成乘法叠加而不是两个独立 rotation。这一轮反复试错(第 1-5 轮)主要因为对 SwiftUI rotationEffect 跟 AVCaptureVideoPreviewLayer 交互理解不够,推导多次出错。**结论**:涉及 SwiftUI transform + UIKit/AVFoundation layer 的场景,优先信任**实证测试反馈**(用户截图描述),少做理论推导。
+
+### 2026-05-26 下午 第 4 轮 (Claude Code - 修复预览内容颠倒 + 对调旋转符号)
+
+**用户第 3 轮反馈 1**:横拿手机后 sheet 没旋转方向不对,要"反过来"。
+**用户第 3 轮反馈 2**:对调符号后 chrome 方向对了,但预览内容上下颠倒(显示器内容在 preview 里是 upside-down)。
+
+**Debug overlay 截图证实**:landscapeLeft 时 CoreMotion 推断正确(显示 "3 landscapeLeft rot=90°"),chrome 旋转方向也正确。**唯一问题是 preview 内容颠倒**。
+
+**根因**:Preview 的 `videoRotationAngle` 跟 device orientation 同步(landscapeLeft = 180°)→ AVCaptureVideoPreviewLayer 内部把视频流旋转 180°。**同时** sheet 用 SwiftUI rotationEffect 旋转了 90°(顺时针)。两个旋转叠加:180° + 90° = 270° = -90°,视觉上 preview 内容相对用户视角"颠倒"。
+
+**正解**:
+- **Preview videoRotationAngle 固定 90°**(portrait 方向,video "顶"对齐 sheet 内坐标 y=0),让 sheet 的 rotationEffect 处理**所有**视觉旋转。preview view 跟着 sheet rotate,内容自然朝向用户视角"上"。
+- **拍照(capturePhoto)的 angle 仍按 device orientation**(landscapeLeft = 180°),因为拍出来的 UIImage 不经过 sheet rotation,需要按物理方向 normalize → properly-oriented UIImage → 后续 OCR / 渲染 / 显示链路全部正确。
+
+**uiRotationDegrees 角度对调**(第 3 轮符号反了):
+- landscapeLeft:  -90 → **90**(顺时针,sheet "顶"转到屏幕"右",对应用户视角"上")
+- landscapeRight: 90 → **-90**(逆时针,sheet "顶"转到屏幕"左",对应用户视角"上")
+- (SwiftUI .rotationEffect 正值是顺时针,我之前推导反了 SwiftUI 的约定)
+
+**改动文件**:
+1. **`CameraCaptureSheet.swift`**:
+   - `videoRotationAngle` 计算属性 → `previewVideoRotationAngle: CGFloat { 90 }`(固定)
+   - `uiRotationDegrees` switch 里 landscape 两个 case 角度对调
+   - CameraPreviewView 调用传 `previewVideoRotationAngle`(总是 90)
+   - 删除临时 debug overlay 跟 `debugOrientationLabel` 计算属性
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`。
+
+**预期效果(真机横拿)**:
+- sheet 旋转方向正确(chrome 在用户视角"上") ✓ (上一轮已经验证)
+- preview 内容方向正确(显示器内容跟用户实际视觉一致) ✓ (本轮修复)
+- 拍照后 UIImage 是 properly-oriented landscape ✓
+- OCR 识别水平 boundingBox ✓
+- 渲染水平译文 ✓
+
+**下次接着**:用户真机横拿验证预览方向 + 拍照翻译方向。如果都对,这轮横屏支持就收尾了。
+
+### 2026-05-26 下午 第 3 轮 (Claude Code - CoreMotion 真正修复横屏)
+
+**用户第 2 次反馈**:第 2 轮改完后,sheet **完全没旋转**。截图里 X 按钮在屏幕左上(用户视角的左下)、状态栏在屏幕左侧(用户视角下方)、"保存到相册"在屏幕右侧(用户视角右侧) —— 是典型"portrait UI 在 landscape 视角下"的样子。文字方向是横排,只是因为拍照那一瞬间手机角度让 `UIDevice.current.orientation` 偶然返回了 landscape,**侥幸不稳定**。
+
+**真正根因**:`UIDevice.orientationDidChangeNotification` **只在方向变化时发**。用户进入 sheet **前**就已经横拿手机不动了,sheet 出现后系统**没有方向变化事件**,`.onReceive` 永远收不到通知,本地 `@State deviceOrientation` 卡在 `.portrait` 初值,sheet 永不旋转。
+
+把"启动 begin notifications"放在 `camera.configure()` 里也没用 —— begin 这个 API 只是让系统**之后开始发通知**,不会立即推一次"当前值"。如果用户进入 sheet 后保持不动,永远等不到第一次通知。
+
+**修复方案**:废弃 `UIDevice.orientationDidChangeNotification`,改用 **CoreMotion 直接读重力向量推断设备方向**。这是 iOS 系统相机的做法 —— 不依赖 UIDevice 事件,sheet 一打开 200ms 内就拿到真实方向。
+
+**改动文件**:
+1. **`CameraSessionManager.swift`**:
+   - `import CoreMotion`
+   - 新增 `@Published var deviceOrientation: UIDeviceOrientation = .portrait`(自己维护,不再让 Sheet 持有)
+   - 新增 `private let motionManager = CMMotionManager()`
+   - 新增 `startOrientationUpdates()`:`motionManager.startDeviceMotionUpdates(to: .main)` 每 0.2s 回调,读 `motion.gravity` 调用 `orientation(fromGravity:)` 推断方向,变了就更新 @Published
+   - 新增 `stopOrientationUpdates()`:`stopSession()` 里同步调用
+   - 新增 `orientation(fromGravity:)`:重力 (x, y, z) → UIDeviceOrientation
+     - `|x| < 0.3 && |y| < 0.3` (设备接近水平平躺) → fallback `.portrait`,避免抖动
+     - `|y| > |x|`:`y > 0` 是 upsideDown,`y < 0` 是 portrait
+     - `|x| > |y|`:`x > 0` 是 landscapeRight,`x < 0` 是 landscapeLeft
+   - `configure()` 函数体开头调 `startOrientationUpdates()`(main thread 同步执行,在 sessionQueue.async 之前)
+   - `capturePhoto(orientation:)` → `capturePhoto()`(参数移除),内部直接读 `self.deviceOrientation`,跟 sheet 视觉同源
+   - 删除 `UIDevice.beginGeneratingDeviceOrientationNotifications` 调用
+
+2. **`CameraCaptureSheet.swift`**:
+   - 删除本地 `@State private var deviceOrientation` 跟它的初始化闭包
+   - 删除 `.onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification))` 监听
+   - `uiRotationDegrees` / `isLandscape` / `videoRotationAngle` 三个计算属性全部改成读 `camera.deviceOrientation`
+   - GeometryReader 外加 `.animation(.easeInOut(duration: 0.25), value: camera.deviceOrientation)` 让旋转有动画
+   - shutter Button 改回 `camera.capturePhoto()`(不传参数)
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`。
+
+**预期效果**:
+- 用户横拿手机进入 sheet → 200ms 内 CoreMotion 第一次回调 → camera.deviceOrientation 更新到 `.landscapeXxx` → SwiftUI 自动 re-render → sheet 旋转到 landscape(带 0.25s 动画)
+- 预览跟拍照都用 `camera.deviceOrientation` 这个唯一真相源,角度一致
+- 用户旋转手机 → CoreMotion 持续推送新重力向量 → sheet 跟着旋转
+
+**模拟器注意**:`motionManager.isDeviceMotionAvailable` 为 false → fallback portrait,模拟器永远是竖屏。**必须真机测试**。
+
+### 2026-05-26 下午 第 2 轮 (Claude Code - 横屏拍摄真因修复 — 已被第 3 轮覆盖,只解决了一半)
+
+**用户反馈**:第 1 轮改动后真机测试,sheet chrome 确实旋转了(English / X / 保存到相册按钮位置正确),但**拍出来的译图文字仍然是竖排**(每行一字符)。
+
+**根因**:`CameraSessionManager.capturePhoto()` 内部直接读 `UIDevice.current.orientation`。这个值在拍照那一瞬间手机略微倾斜/平放就会变成 `.faceUp` / `.faceDown` / `.unknown`,`videoRotationAngle(for:)` 的 `default` 分支 fallback 到 90°(portrait) → AVCapturePhotoOutput 输出的 pixel buffer 实际是 portrait 方向 → 横向显示器内容被竖向入图 → OCR 出来 boundingBox 是窄竖列 → LayoutPreservingRenderer 在窄列里画水平译文 → 文字被换行成"每行一字符"竖排。
+
+第 1 轮做的 sheet rotation 只解决了"chrome 视觉位置",没解决"拍出来的 UIImage 方向"。两件事用了**不同的 orientation 来源**:
+- Sheet rotation 用的是 `@State deviceOrientation`(NotificationCenter 监听 + `isValidInterfaceOrientation` 过滤)
+- 拍照用的是 `UIDevice.current.orientation`(直接读,不过滤)
+
+**修复**:把 sheet 监听维护的 `deviceOrientation` 作为唯一真相源,传给 `capturePhoto`。
+
+**改动文件**:
+1. **`CameraSessionManager.swift`** `capturePhoto()` → `capturePhoto(orientation: UIDeviceOrientation)`,内部 `resolved = orientation.isValidInterfaceOrientation ? orientation : .portrait`,然后算 angle
+2. **`CameraCaptureSheet.swift:273`** shutter Button action 改 `camera.capturePhoto(orientation: deviceOrientation)`
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`。
+
+**下次接着**:用户真机横拿拍照,看译图文字是不是横排了。如果还不对,继续排查:可能是 OCR / 渲染器对 imageOrientation 处理有问题。
+
+---
+
+### 2026-05-26 下午 第 1 轮 (Claude Code - 横屏拍摄支持)
+
+**用户反馈**:横拿手机拍横向显示器,翻译结果被绘成竖排(每个英文单词竖向一列字符)。原因:相机预览强制 portrait 旋转(`videoRotationAngle = 90` hardcode),但 `CameraSessionManager.capturePhoto()` 按 device orientation 输出 UIImage——预览跟拍照方向不一致;同时 sheet UI 始终 portrait,横拿时即使图片是 landscape,显示在 portrait view 里 aspectFill 会裁剪很多。
+
+**根因深一层**:用户实际看到的竖排翻译,推测是用户**竖拿手机**拍横向内容时——portrait UIImage 里横向文字被旋转 90° 入图,OCR 出来的 boundingBox 是竖向细长矩形,LayoutPreservingRenderer 在窄矩形里水平绘制译文 → 文字被自动换行成"每行一字符"竖排。彻底修法就是让用户能横拿拍照,得到真正 landscape 的 UIImage,OCR/渲染全链路方向才正确。
+
+**方案选择**:维持 App portrait-only(整体 UI 不动),仅 CameraCaptureSheet 内部"视觉上"支持 landscape。不去动 SceneDelegate / supportedInterfaceOrientations,改动小:
+- 监听 `UIDevice.orientationDidChangeNotification`
+- 外层用 `GeometryReader` + 互换 W/H + `rotationEffect(.degrees(uiRotationDegrees))` 把整个 sheet 旋转
+- 内部布局按 portrait 画板写(顶 X / 底 shutter),旋转后自然映射到用户横拿视角的"上/下"
+- 相机预览的 `videoRotationAngle` 跟 device orientation 同步(用 `CameraSessionManager.videoRotationAngle(for:)`),预览跟拍照用同一套角度
+
+**改动文件**:
+1. **`CameraSessionManager.swift:131`** `videoRotationAngle(for:)` private → static internal,让 CameraPreviewView 复用
+2. **`CameraPreviewView.swift`** 完全重写:加 `let videoRotationAngle: CGFloat` 参数,删除 `layoutSubviews` 里 hardcode 90 的旧逻辑,改成 `setVideoRotationAngle(_:)` + 缓存 `pendingVideoRotationAngle` + `applyPendingRotation()`(layoutSubviews 里兜底再调一次,避免 connection 还没准备好时第一次设置被 skip)
+3. **`CameraCaptureSheet.swift`**:
+   - 新增 `@State private var deviceOrientation: UIDeviceOrientation`(初值取 `UIDevice.current.orientation`,无效时 fallback `.portrait`)
+   - 新增计算属性 `uiRotationDegrees`(portrait=0 / landscapeLeft=-90 / landscapeRight=90 / upsideDown=180,顺时针)、`isLandscape`、`videoRotationAngle`
+   - body 改成 `GeometryReader { geo in sheetContent.frame(...).rotationEffect(...).position(geo.center) }`
+   - 新增 `private var sheetContent: some View`,把原 ZStack 内容(背景/mainContent/chrome VStack/loading overlay)挪进去,外加 `.clipped()` 防止旋转后画板溢出
+   - chrome top padding 改为 `isLandscape ? 24 : 60`(portrait 避 Dynamic Island,landscape 时 sheet 的"top"对应屏幕侧边,无 Island)
+   - bottom padding 同理 16 → 24
+   - 新增 `.onReceive(NotificationCenter ... UIDevice.orientationDidChangeNotification)` 过滤 `isValidInterfaceOrientation` 后 `withAnimation` 更新 state
+   - CameraPreviewView 调用补 `videoRotationAngle: videoRotationAngle` 参数
+
+**为什么不动 PhotoDisplayView**:它接受 UIImage 后用 UIImageView aspectFill 显示。当 sheet 旋转到 landscape 后,PhotoDisplayView 的 frame 也是 landscape(互换了 W/H),aspectFill landscape UIImage 在 landscape view 里就是完美填满,无需改 contentMode。
+
+**`UIDevice.beginGeneratingDeviceOrientationNotifications`**:CameraSessionManager.configure() 已经调用过,所以 orientation 通知正常发。
+
+**Build 验证**:`xcodebuild build` → `** BUILD SUCCEEDED **`,无新警告(只有原有的 `normalizedOrientation` main-actor 警告)。
+
+**预期效果**:
+- 用户横拿手机进入相机面板 → 整个 sheet 自动旋转到 landscape,预览充满,chrome 在用户视角的"上/下"
+- 拍照 → UIImage 是 landscape,内容方向正确
+- OCR → 水平 boundingBox
+- 渲染器 → 水平译文 ✅
+- 结果 sheet 也是 landscape,PhotoDisplayView aspectFill 填满,看到正常的横向译图
+
+**未解决/可能要继续打磨**:
+- chrome 元素的具体位置在 landscape 下没专门重排(顶 X / 底 shutter 直接旋转过来),如果用户嫌位置怪可以做 landscape 专属布局(左右两侧而不是上下)
+- 拍照后用户突然转回竖屏:sheet 会跟着旋转回 portrait,landscape UIImage 在 portrait view 里 aspectFill 会被裁剪。这种 edge case 暂不处理
+- 分析模式底部 ScrollView 文本面板在 landscape 下高度限制 `maxHeight: 280` 没特别调,可能撑得偏高,真机看效果再决定要不要按 isLandscape 切换数值
+
+**下次接着**:用户真机横拿测试:
+1. 进入相机面板 → sheet 是否旋转 + 预览是否横向铺满
+2. 拍照 → UIImage 方向是否正确
+3. 翻译结果 → 文字是否横向排列
+4. chrome(X / 语言菜单 / shutter / 保存) → 是否在用户视角"正立"
+5. 反馈后决定要不要做 chrome 重排或者 PhotoDisplayView contentMode 切换
 
 ### 2026-05-26 (Claude Code - 拍照面板 polish + 历史记录改造 + 一次性 push)
 

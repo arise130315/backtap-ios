@@ -33,53 +33,53 @@ struct CameraCaptureSheet: View {
     @State private var capturedOriginal: UIImage?
     @State private var saveStatus: SaveStatus = .idle
     @State private var permissionDenied = false
+    /// 分析模式:复制按钮的"已复制"反馈,1.2 秒后还原(跟 ContentView 同款)
+    @State private var analysisCopied = false
 
     enum SaveStatus {
         case idle, saving, success, failed
     }
 
-    var body: some View {
-        ZStack(alignment: .center) {
-            Color.black.ignoresSafeArea()
-
-            mainContent
-
-            // 顶部:三段 HStack(左占位 / 中目标语言切换 / 右关闭),底部:shutter / 保存
-            // 整个 VStack 强制撑满父容器,避免 wrap-content 把内容挤到一侧
-            VStack(spacing: 0) {
-                HStack {
-                    // 左占位 36×36,跟右侧 closeButton 对称,让中央元素真正水平居中
-                    Color.clear.frame(width: 36, height: 36)
-                    Spacer(minLength: 0)
-                    // 翻译模式:目标语言切换(预览/翻译中/翻译完都显示,翻译完切换会触发重译)
-                    if mode == .translate {
-                        targetLanguageMenu
-                    }
-                    Spacer(minLength: 0)
-                    closeButton
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 60) // 避开 Dynamic Island / 状态栏
-
-                Spacer()
-
-                // 底部按钮包在全宽容器里居中(VStack 在 safe area 内,自然避开 home indicator)
-                bottomButtonArea
-                    .frame(maxWidth: .infinity)
-                    .padding(.bottom, 16)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // 处理中 loading,用透明全屏 ZStack 包一层强制居中(processingOverlay 自身 wrap content)
-            if isProcessing {
-                Color.clear
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .overlay { processingOverlay }
-            }
+    /// UI 元素需要的视觉旋转角度(顺时针,度)。SwiftUI .rotationEffect 正值是顺时针。
+    /// 用户视角看,chrome 应该在视角"上"方,这跟 device 怎么倾斜对应不同的旋转角:
+    /// - landscapeLeft(顶向左,home 在右):屏幕"右"在用户视角"上",sheet 顺时针 90°
+    /// - landscapeRight(顶向右,home 在左):屏幕"左"在用户视角"上",sheet 逆时针 90°
+    /// camera.deviceOrientation 由 CMMotionManager 实时维护(读重力推断),sheet 一打开就有值
+    private var uiRotationDegrees: Double {
+        switch camera.deviceOrientation {
+        case .portraitUpsideDown: return 180
+        case .landscapeLeft:      return 90
+        case .landscapeRight:     return -90
+        default:                  return 0
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity) // 强制铺满 fullScreenCover 容器
-        // 注:外层不加 .ignoresSafeArea() —— chrome (X / 语言菜单 / 底部按钮 / loading)
-        // 在 safe area 内自然居中布局;mainContent 内部自己 .ignoresSafeArea() 突破到全屏
+    }
+
+    private var isLandscape: Bool { camera.deviceOrientation.isLandscape }
+
+    /// Preview videoRotationAngle —— 直接用 CameraSessionManager 静态映射,
+    /// 让预览跟拍照用完全相同的 angle,保证 PhotoDisplayView 显示的 UIImage 方向跟预览一致。
+    /// 这个映射是 swap 过的(landscape 两个值对调),为了补偿 SwiftUI sheet rotationEffect 的影响。
+    private var previewVideoRotationAngle: CGFloat {
+        CameraSessionManager.videoRotationAngle(for: camera.deviceOrientation)
+    }
+
+    var body: some View {
+        // App 是 portrait-only,fullScreenCover 内部 view 真实方向也是 portrait。
+        // 通过 GeometryReader + 互换 W/H + rotationEffect 把整个 sheet "视觉上"旋转到 landscape,
+        // 用户横拿手机时看起来 sheet 就是横屏铺满。
+        // 内部布局按 portrait 画板写(顶部 X、底部 shutter),旋转后自然映射到用户视角的"上/下"。
+        GeometryReader { geo in
+            let canvasWidth = isLandscape ? geo.size.height : geo.size.width
+            let canvasHeight = isLandscape ? geo.size.width : geo.size.height
+
+            sheetContent
+                .frame(width: canvasWidth, height: canvasHeight)
+                .rotationEffect(.degrees(uiRotationDegrees))
+                .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                .animation(.easeInOut(duration: 0.25), value: camera.deviceOrientation)
+        }
+        .ignoresSafeArea()
+        .background(Color.black.ignoresSafeArea())
         .task {
             await requestCameraAccessAndConfigure()
         }
@@ -110,15 +110,68 @@ struct CameraCaptureSheet: View {
         }
     }
 
+    /// Sheet 真正的内容(在 portrait 画板尺寸内布局)。
+    /// 外层 body 拿到这个 view 后 frame + rotationEffect 旋转到对应方向呈现。
+    private var sheetContent: some View {
+        ZStack(alignment: .center) {
+            Color.black
+
+            mainContent
+
+            // 顶部:三段 HStack(左占位 / 中目标语言切换 / 右关闭),底部:shutter / 保存
+            // 整个 VStack 强制撑满父容器,避免 wrap-content 把内容挤到一侧
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    // 左占位 36×36,跟右侧 closeButton 对称,让中央元素真正水平居中
+                    Color.clear.frame(width: 36, height: 36)
+                    Spacer(minLength: 0)
+                    // 翻译模式:目标语言切换(预览/翻译中/翻译完都显示,翻译完切换会触发重译)
+                    if mode == .translate {
+                        targetLanguageMenu
+                    }
+                    Spacer(minLength: 0)
+                    // 分析模式 + 文本已就绪:右上角加复制按钮(贴在 closeButton 左边)
+                    if mode == .analyze, let text = resultText, !isProcessing {
+                        copyButton(text: text)
+                    }
+                    closeButton
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, isLandscape ? 24 : 60) // portrait 避 Dynamic Island,landscape sheet 的"top"是屏幕侧边,无需大边距
+
+                Spacer()
+
+                // 底部按钮包在全宽容器里居中
+                bottomButtonArea
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, isLandscape ? 24 : 16)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // 处理中 loading,用透明全屏 ZStack 包一层强制居中(processingOverlay 自身 wrap content)
+            if isProcessing {
+                Color.clear
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay { processingOverlay }
+            }
+        }
+        .clipped()
+    }
+
     // MARK: - Subviews
 
     @ViewBuilder
     private var mainContent: some View {
         if capturedOriginal == nil {
             // 阶段 1:预览 + 点击对焦,强制撑满父容器
-            CameraPreviewView(session: camera.session, onTap: { devicePoint in
-                camera.focus(at: devicePoint)
-            })
+            // videoRotationAngle 固定 90° (portrait), sheet rotationEffect 处理视觉旋转
+            CameraPreviewView(
+                session: camera.session,
+                videoRotationAngle: previewVideoRotationAngle,
+                onTap: { devicePoint in
+                    camera.focus(at: devicePoint)
+                }
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea()
         } else if let resultImage {
@@ -149,7 +202,7 @@ struct CameraCaptureSheet: View {
                 }
                 .frame(maxHeight: 280)
                 .background(Color.black.opacity(0.75), in: .rect(cornerRadius: 14))
-                .padding(.horizontal, 16)
+                .padding(.horizontal, isLandscape ? 72 : 16) // 横屏时两边各 +56 避开横向状态栏(电池/信号/灵动岛)
                 .padding(.bottom, 120) // 给底部"保存"按钮留位置
             }
             .ignoresSafeArea()
@@ -167,6 +220,29 @@ struct CameraCaptureSheet: View {
                 .frame(width: 36, height: 36) // 保持 36×36 hit area,跟左占位对称
         }
         .accessibilityLabel("关闭")
+    }
+
+    /// 分析模式右上角复制按钮(跟 closeButton 视觉风格统一:双色 circle.fill + 内嵌 symbol)。
+    /// 跟 ContentView.copyButton 同款逻辑:点击复制 + 1.2s 内 icon 变 ✓ 反馈。
+    private func copyButton(text: String) -> some View {
+        Button {
+            UIPasteboard.general.string = text
+            analysisCopied = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                analysisCopied = false
+            }
+        } label: {
+            ZStack {
+                Image(systemName: "circle.fill")
+                    .font(.system(size: 30))
+                    .foregroundStyle(.black.opacity(0.55))
+                Image(systemName: analysisCopied ? "checkmark" : "doc.on.doc.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 36, height: 36)
+        }
+        .accessibilityLabel(analysisCopied ? "已复制" : "复制")
     }
 
     /// 拍照面板顶部中间的目标语言切换按钮(仅翻译模式)
@@ -213,6 +289,8 @@ struct CameraCaptureSheet: View {
 
     private var shutterButton: some View {
         Button {
+            // capturePhoto 内部用 camera.deviceOrientation(CMMotionManager 实时维护),
+            // 跟 sheet 视觉旋转用同一个真相源,保证 sheet 横屏时拍出来也是横屏 UIImage
             camera.capturePhoto()
         } label: {
             ZStack {

@@ -3,6 +3,16 @@
     {
       "filename" : "brand-slogan.svg",
       "idiom" : "universal"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "dark"
+        }
+      ],
+      "filename" : "brand-slogan-dark.svg",
+      "idiom" : "universal"
     }
   ],
   "info" : {

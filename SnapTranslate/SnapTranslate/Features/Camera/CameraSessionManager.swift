@@ -11,6 +11,7 @@
 
 import AVFoundation
 import Combine
+import CoreMotion
 import UIKit
 
 // 注:不用 @MainActor 标 class —— ObservableObject 协议要求成员 nonisolated,跟 @MainActor 冲突。
@@ -19,17 +20,22 @@ final class CameraSessionManager: NSObject, ObservableObject {
     @Published var capturedImage: UIImage?
     @Published var captureError: String?
     @Published var isConfigured: Bool = false
+    /// 实时设备物理方向,用 CoreMotion 重力向量判断。
+    /// 为什么不用 UIDevice.orientationDidChangeNotification:
+    /// 那个通知只在"方向变化"时发,用户进入 sheet 前已经横拿手机不动,
+    /// 系统不会发新通知,SwiftUI .onReceive 永远收不到,UI 卡在 portrait 初值。
+    /// CoreMotion 重力是连续读取,sheet 一打开 200~300ms 内就能拿到真实方向。
+    @Published var deviceOrientation: UIDeviceOrientation = .portrait
 
     let session = AVCaptureSession()
     private let photoOutput = AVCapturePhotoOutput()
     private let sessionQueue = DispatchQueue(label: "com.snaptranslate.camera.session")
+    /// CMMotionManager 持续读重力 → 推断 device orientation,跟 iOS 系统相机做法一致
+    private let motionManager = CMMotionManager()
 
     func configure() {
-        // 启动 device orientation 通知,让 UIDevice.current.orientation 能返回准确值
-        // (系统通常自动生成,但显式启动更稳)
-        if !UIDevice.current.isGeneratingDeviceOrientationNotifications {
-            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-        }
+        // CoreMotion 启动 device motion updates,持续读重力向量
+        startOrientationUpdates()
 
         sessionQueue.async { [weak self] in
             guard let self else { return }
@@ -70,6 +76,7 @@ final class CameraSessionManager: NSObject, ObservableObject {
     }
 
     func stopSession() {
+        stopOrientationUpdates()
         sessionQueue.async { [weak self] in
             guard let self else { return }
             if self.session.isRunning {
@@ -78,11 +85,11 @@ final class CameraSessionManager: NSObject, ObservableObject {
         }
     }
 
+    /// 拍照。直接用 self.deviceOrientation(CoreMotion 实时维护的值),
+    /// 保证拍照角度跟 sheet 视觉方向同源 —— 都是 CMMotionManager 读重力推断出来的。
     func capturePhoto() {
-        // 从 main thread 拿设备物理方向(SwiftUI Button 触发 capturePhoto 时一定在 main)。
-        // App 是 portrait-only,interface 永远竖直,但相机要按设备物理方向拍:
-        // 横拿时输出横屏图(imageOrientation=.up + raw 横向),OCR 才能正确识别横向文字。
-        let angle = Self.videoRotationAngle(for: UIDevice.current.orientation)
+        let orientation = self.deviceOrientation
+        let angle = Self.videoRotationAngle(for: orientation)
 
         sessionQueue.async { [weak self] in
             guard let self else { return }
@@ -125,14 +132,65 @@ final class CameraSessionManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - CoreMotion 方向追踪
+
+    /// 启动 device motion updates,持续读重力向量推断设备方向。
+    /// 跟 iOS 系统相机做法一致 —— 不依赖 UIDevice.orientationDidChangeNotification
+    /// (那个只在方向变化时才发,sheet 打开时手机已经横拿不动就收不到)。
+    private func startOrientationUpdates() {
+        guard motionManager.isDeviceMotionAvailable else {
+            // 模拟器或无 motion sensor 设备 fallback portrait
+            return
+        }
+        guard !motionManager.isDeviceMotionActive else { return }
+        motionManager.deviceMotionUpdateInterval = 0.2
+        motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
+            guard let self, let gravity = motion?.gravity else { return }
+            let newOrientation = Self.orientation(fromGravity: gravity)
+            if newOrientation != self.deviceOrientation {
+                self.deviceOrientation = newOrientation
+            }
+        }
+    }
+
+    private func stopOrientationUpdates() {
+        if motionManager.isDeviceMotionActive {
+            motionManager.stopDeviceMotionUpdates()
+        }
+    }
+
+    /// 根据 CoreMotion 重力向量推断 UIDeviceOrientation。
+    /// 设备坐标系:x = 设备左→右,y = 设备底→顶(positive 向上),z = 屏幕外→里。
+    /// 重力始终指地心,根据 gravity 在设备坐标系的分量判断设备相对地心的姿态:
+    /// - portrait(顶向上):gravity ≈ (0, -1, 0),y < 0 → portrait
+    /// - portraitUpsideDown(顶向下):gravity ≈ (0, 1, 0),y > 0 → upsideDown
+    /// - landscapeLeft(顶向左,home 在右):gravity ≈ (-1, 0, 0),x < 0 → landscapeLeft
+    /// - landscapeRight(顶向右,home 在左):gravity ≈ (1, 0, 0),x > 0 → landscapeRight
+    private static func orientation(fromGravity gravity: CMAcceleration) -> UIDeviceOrientation {
+        // 设一个 deadband 阈值,避免设备接近水平(平躺)时频繁抖动方向
+        // |x|, |y| 都很小时(<0.6,大约小于 37° 倾角),保留上次 orientation
+        if abs(gravity.x) < 0.3 && abs(gravity.y) < 0.3 {
+            return .portrait // faceUp/faceDown fallback
+        }
+        if abs(gravity.y) > abs(gravity.x) {
+            return gravity.y > 0 ? .portraitUpsideDown : .portrait
+        } else {
+            return gravity.x > 0 ? .landscapeRight : .landscapeLeft
+        }
+    }
+
     /// 设备物理方向 → AVCaptureConnection videoRotationAngle(degrees,顺时针)。
-    /// 系统未生成 device orientation 通知时 fallback 到 portrait(90°)。
-    private static func videoRotationAngle(for orientation: UIDeviceOrientation) -> CGFloat {
+    /// 这套映射 = Apple 标准 + landscape 两个值对调,跟 CameraCaptureSheet.previewVideoRotationAngle 保持一致。
+    /// 为什么不用 Apple 标准的 landscapeLeft=180 / landscapeRight=0:
+    /// 实证发现 sheet rotationEffect transform 跟 AVCapturePhotoOutput 的 angle 叠加后,
+    /// 用 Apple 标准值时拍出来的 UIImage 跟预览差 180°(预览正、拍照颠倒)。
+    /// 用 swap 值后预览跟拍照方向一致。
+    static func videoRotationAngle(for orientation: UIDeviceOrientation) -> CGFloat {
         switch orientation {
         case .portrait:           return 90
         case .portraitUpsideDown: return 270
-        case .landscapeLeft:      return 180 // home button 在右(顶向左)
-        case .landscapeRight:     return 0   // home button 在左(顶向右)
+        case .landscapeLeft:      return 0   // home button 在右(顶向左) — 跟预览 swap 一致
+        case .landscapeRight:     return 180 // home button 在左(顶向右) — 跟预览 swap 一致
         default:                  return 90  // faceUp/faceDown/unknown
         }
     }

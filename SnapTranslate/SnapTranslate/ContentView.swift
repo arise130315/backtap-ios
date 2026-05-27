@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import Translation
 
 /// 主页双 tab 切换的模式。
 enum ContentMode { case translate, analyze }
@@ -61,6 +62,8 @@ struct ContentView: View {
 
     // 拍照翻译/分析:全屏相机界面是否显示
     @State private var showCameraCapture = false
+    /// 轻点背面绑定教学 sheet 是否显示
+    @State private var showBackTapTutorial = false
     /// 标记本次拍照是否产生了翻译结果 —— 关闭 Sheet 时据此清空首页翻译 state,
     /// 让拍照翻译的结果只进历史记录,不留在首页(分析模式保持原行为,结果落首页)
     @State private var cameraCaptureProducedTranslate = false
@@ -72,9 +75,26 @@ struct ContentView: View {
     @State private var translationTask: Task<Void, Never>?
     @State private var analysisTask: Task<Void, Never>?
 
-    // iCloud Shortcut 链接
-    private let translateShortcutURL = URL(string: "https://www.icloud.com/shortcuts/e3fc991c188f4c658f364ff663d796b7")!
-    private let analyzeShortcutURL = URL(string: "https://www.icloud.com/shortcuts/6bc1d736d070469c99eed8b46f737830")!
+    // MARK: - Apple Translation Framework state(仅端内"默认模型"路径用)
+    // 端外 AppIntent 路径走 TranslationPipeline,继续用 LLM,不受这套 state 影响。
+
+    /// Apple Translation 配置。设为 non-nil 时 `.translationTask` 触发,
+    /// 同 target 重复翻译时调 invalidate() 强制重跑。
+    @State private var translationConfiguration: TranslationSession.Configuration?
+    /// 待翻译数据。dispatchTranslation 把数据塞这里,.translationTask 闭包里读出来用。
+    @State private var pendingTranslation: PendingTranslation?
+
+    /// 暂存待 Apple Translation 处理的数据。SwiftUI Apple Translation API 必须在
+    /// .translationTask 闭包里调,不能像 LLM 那样直接 await,所以用 @State 中转。
+    private struct PendingTranslation {
+        let original: UIImage
+        let results: [OCRResult]
+        let target: TargetLanguage
+    }
+
+    // iCloud Shortcut 链接(2026-05-27 用户改名为「识屏翻译」「识屏分析」后重新生成)
+    private let translateShortcutURL = URL(string: "https://www.icloud.com/shortcuts/50b6f03c05b94c73890e25801ff26201")!
+    private let analyzeShortcutURL = URL(string: "https://www.icloud.com/shortcuts/3e0a5a7638fb4f41aa4ce4b1870f7775")!
 
     var body: some View {
         NavigationStack {
@@ -116,6 +136,9 @@ struct ContentView: View {
                 ImageDetailView(image: img)
             }
         }
+        .sheet(isPresented: $showBackTapTutorial) {
+            BackTapTutorialSheet()
+        }
         .fullScreenCover(isPresented: $showCameraCapture) {
             CameraCaptureSheet(
                 mode: mode,
@@ -156,6 +179,12 @@ struct ContentView: View {
             Button("确定", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
+        }
+        // Apple Translation 入口:configuration 设为 non-nil 时触发一次,
+        // 闭包内拿到 session,从 pendingTranslation 读数据做 batch 翻译。
+        // 同 target 重译走 configuration.invalidate() 重新触发(triggerAppleTranslation 内处理)。
+        .translationTask(translationConfiguration) { session in
+            await performAppleTranslation(session: session)
         }
     }
 
@@ -229,10 +258,16 @@ struct ContentView: View {
                     .resizable()
                     .scaledToFit()
             } else {
-                Image("img_none")
-                    .opacity(0.9)
+                VStack(spacing: 12) {
+                    Image("img_none")
+                        .opacity(0.9)
+                    Text("翻译外文 App，海外网页，游戏菜单")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                }
             }
         }
+        .padding(16) // 图片四周留 16pt,不贴卡片边缘;X 按钮 overlay 在 padding 外层,仍贴卡片右上角
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(.rect)
         .onTapGesture {
@@ -331,9 +366,14 @@ struct ContentView: View {
                     // 选了图但还没结果(分析中)。loading overlay 会盖住。
                     Color.clear
                 } else {
-                    Image("img_none")
-                        .opacity(0.9)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    VStack(spacing: 12) {
+                        Image("img_none")
+                            .opacity(0.9)
+                        Text("解题、读截图、识万物")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -490,9 +530,10 @@ struct ContentView: View {
             Spacer()
 
             Button {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(url)
-                }
+                // 不再直接跳 openSettingsURLString —— 那个 API 只能跳本 App 的设置页,
+                // 跳不到「辅助功能 → 触控 → 轻点背面」子页面,跳过去用户会懵。
+                // 改成弹出图文教学 sheet,教完用户再让他自己跳系统设置。
+                showBackTapTutorial = true
             } label: {
                 Text("绑定")
                     .font(.system(size: 16, weight: .medium))
@@ -693,11 +734,69 @@ struct ContentView: View {
         let engine = TranslationEngine(rawValue: engineRaw) ?? .builtin
         switch engine {
         case .builtin:
-            await runBuiltinTranslation(original: original, results: results)
+            // 默认模型走 Apple Translation Framework(iOS 17.4+,本地翻译)。
+            // 通过 @State 触发 .translationTask,真正执行在 performAppleTranslation。
+            // isTranslating 在 performAppleTranslation 末尾 / fallback 末尾再设 false,
+            // 这里不能 await。
+            triggerAppleTranslation(original: original, results: results)
         case .llm:
             await runLLMTranslation(original: original, results: results)
+            isTranslating = false
         }
-        isTranslating = false
+    }
+
+    // MARK: - Apple Translation 调用(端内默认模型)
+
+    /// 把待翻译数据塞进 pendingTranslation,然后设置/invalidate translationConfiguration
+    /// 触发 .translationTask 重新执行。
+    private func triggerAppleTranslation(original: UIImage, results: [OCRResult]) {
+        pendingTranslation = PendingTranslation(
+            original: original,
+            results: results,
+            target: targetLanguage
+        )
+        let newTarget = Locale.Language(identifier: targetLanguage.rawValue)
+        if translationConfiguration?.target == newTarget {
+            // 同 target,invalidate 重新触发 .translationTask
+            // invalidate 是 mutating,直接在 @State 上 optional chain 调用
+            translationConfiguration?.invalidate()
+        } else {
+            // target 变了或者第一次:设新 configuration,SwiftUI 检测到值变化自然触发
+            translationConfiguration = TranslationSession.Configuration(
+                source: nil, // auto-detect
+                target: newTarget
+            )
+        }
+    }
+
+    /// .translationTask 闭包真正干活的地方:从 pendingTranslation 读数据,
+    /// 用 session.translations(from:) batch 翻译,完成后渲染译图。
+    /// 失败时回退到 DeepSeek(原 builtin 路径),保证用户体验不中断。
+    private func performAppleTranslation(session: TranslationSession) async {
+        guard let pending = pendingTranslation else { return }
+        defer {
+            pendingTranslation = nil
+        }
+
+        do {
+            let requests = pending.results.enumerated().map { idx, result in
+                TranslationSession.Request(sourceText: result.text, clientIdentifier: "\(idx)")
+            }
+            let responses = try await session.translations(from: requests)
+            // 按 clientIdentifier(原始 index)排序,还原跟 OCRResults 的顺序对应
+            let sorted = responses.sorted {
+                (Int($0.clientIdentifier ?? "0") ?? 0) < (Int($1.clientIdentifier ?? "0") ?? 0)
+            }
+            let translations = sorted.map { $0.targetText }
+            print("【Apple Translation】完成 \(translations.count) 段")
+            renderTranslatedImage(original: pending.original, translations: translations)
+            isTranslating = false
+        } catch {
+            print("【Apple Translation】失败,回退 DeepSeek: \(error.localizedDescription)")
+            // 回退:重用原 builtin LLM 路径(DefaultModelConfig.settings)
+            await runBuiltinTranslation(original: pending.original, results: pending.results)
+            isTranslating = false
+        }
     }
 
     private func runBuiltinTranslation(original: UIImage, results: [OCRResult]) async {
@@ -858,15 +957,26 @@ struct ContentView: View {
                 }
             }()
             do {
-                // truncate: false → 主 App 不截断分析文本,让 imageArea / 相机面板的 ScrollView 完整显示
-let result = try await AnalysisPipeline.run(imageData: data, settings: settings, truncate: false)
-                analysisText = result.analysisText
-                let historyItem = HistoryItem(originalImage: result.image, analysisText: result.analysisText)
+                // 走流式:第一个 chunk 到达时关 loading,后续 chunk 持续替换 analysisText,
+                // SwiftUI 自动 reload → 文字像打字机逐字蹦出;最后一帧 snap 到 sanitize 后的干净版本
+                let run = try AnalysisPipeline.runStream(imageData: data, settings: settings)
+                var fullText = ""
+                var firstChunkSeen = false
+                for try await chunk in run.stream {
+                    if !firstChunkSeen {
+                        firstChunkSeen = true
+                        isAnalyzing = false
+                        analysisText = ""
+                    }
+                    fullText = chunk
+                    analysisText = chunk
+                }
+                let historyItem = HistoryItem(originalImage: run.image, analysisText: fullText)
                 context.insert(historyItem)
             } catch {
                 errorMessage = "图片分析失败: \(error.localizedDescription)"
             }
-            isAnalyzing = false
+            isAnalyzing = false // 兜底:stream 抛错时 firstChunkSeen 仍 false,关掉 loading
         }
     }
 
@@ -895,18 +1005,28 @@ let result = try await AnalysisPipeline.run(imageData: data, settings: settings,
         }()
 
         do {
-            // truncate: false → 主 App 不截断分析文本,让 imageArea / 相机面板的 ScrollView 完整显示
-let result = try await AnalysisPipeline.run(imageData: data, settings: settings, truncate: false)
-            print("【图片分析】完成,长度 \(result.analysisText.count) 字")
-            analysisText = result.analysisText
-            // 写历史
-            let historyItem = HistoryItem(originalImage: result.image, analysisText: result.analysisText)
+            // 走流式:第一个 chunk 到达时关 loading,后续 chunk 持续替换 analysisText,
+            // SwiftUI 自动 reload → 文字像打字机逐字蹦出;最后一帧 snap 到 sanitize 后的干净版本
+            let run = try AnalysisPipeline.runStream(imageData: data, settings: settings)
+            var fullText = ""
+            var firstChunkSeen = false
+            for try await chunk in run.stream {
+                if !firstChunkSeen {
+                    firstChunkSeen = true
+                    isAnalyzing = false
+                    analysisText = ""
+                }
+                fullText = chunk
+                analysisText = chunk
+            }
+            print("【图片分析】streaming 完成,长度 \(fullText.count) 字")
+            let historyItem = HistoryItem(originalImage: run.image, analysisText: fullText)
             context.insert(historyItem)
         } catch {
             print("【图片分析】失败: \(error.localizedDescription)")
             errorMessage = "图片分析失败: \(error.localizedDescription)"
         }
-        isAnalyzing = false
+        isAnalyzing = false // 兜底:stream 抛错时 firstChunkSeen 仍 false,关掉 loading
     }
 }
 

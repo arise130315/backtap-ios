@@ -9,9 +9,15 @@ struct AnalyzeScreenshotIntent: AppIntent {
     static let openAppWhenRun: Bool = false
 
     @Parameter(title: "截图")
-    var image: IntentFile
+    var image: IntentFile?
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        // 用户在「快捷指令」App 内直接点动作卡片(没拍截图作为输入)会走到这里——
+        // 给一个引导文案,替代系统默认的"无法解析图片"错误。
+        guard let image else {
+            throw SnapTranslateIntentError.missingImage
+        }
+
         let defaults = UserDefaults.standard
         let engineRaw = defaults.string(forKey: "analysisEngine") ?? AnalysisEngine.builtin.rawValue
         let engine = AnalysisEngine(rawValue: engineRaw) ?? .builtin

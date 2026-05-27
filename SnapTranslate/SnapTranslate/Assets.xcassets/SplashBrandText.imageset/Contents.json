@@ -3,6 +3,16 @@
     {
       "filename" : "splash-brand-text.svg",
       "idiom" : "universal"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "dark"
+        }
+      ],
+      "filename" : "splash-brand-text-dark.svg",
+      "idiom" : "universal"
     }
   ],
   "info" : {
