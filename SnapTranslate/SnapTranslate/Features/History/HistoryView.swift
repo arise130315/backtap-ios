@@ -9,6 +9,8 @@ struct HistoryView: View {
     @State private var selectedTab: HistoryItemType = .translation
     /// 自定义 editMode(用中文「编辑」/「完成」按钮替代 SwiftUI 默认 EditButton 的英文)
     @State private var editMode: EditMode = .inactive
+    /// 「全部清除」二次确认弹窗
+    @State private var showClearAllConfirm = false
 
     init() {
         // SwiftUI Picker(.segmented) 内的字号由 UISegmentedControl appearance 控制,
@@ -39,7 +41,9 @@ struct HistoryView: View {
                 ContentUnavailableView(
                     "暂无历史",
                     systemImage: "clock.arrow.circlepath",
-                    description: Text(selectedTab == .translation ? "翻译过的截图会出现在这里" : "分析过的截图会出现在这里")
+                    description: Text(selectedTab == .translation
+                        ? "只会记录拍照翻译和选图翻译的内容（快捷识屏翻译不会被记录，用完即走）"
+                        : "只会记录拍照分析和选图分析的内容（快捷识屏分析不会被记录，用完即走）")
                 )
                 Spacer()
             } else {
@@ -81,9 +85,32 @@ struct HistoryView: View {
                     }
                 }
             }
+            if editMode == .active && !filtered.isEmpty {
+                ToolbarItem(placement: .bottomBar) {
+                    Button(role: .destructive) {
+                        showClearAllConfirm = true
+                    } label: {
+                        Text("全部清除")
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
         }
         .environment(\.editMode, $editMode)
         .animation(.easeInOut(duration: 0.2), value: selectedTab)
+        .alert("清除后，将不能恢复，确认是否清除？", isPresented: $showClearAllConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("清除", role: .destructive) {
+                clearAllInCurrentTab()
+            }
+        }
+    }
+
+    /// 清除当前 tab 下的所有记录(只删翻译,或只删分析)
+    private func clearAllInCurrentTab() {
+        for item in items where item.type == selectedTab {
+            context.delete(item)
+        }
     }
 
     // MARK: - 时间分组

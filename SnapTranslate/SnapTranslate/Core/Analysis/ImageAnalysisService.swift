@@ -108,7 +108,7 @@ enum ImageAnalysisService {
 
     // MARK: - 私有 helpers(stream / 非 stream 共用)
 
-    private static let systemPrompt: String = """
+    static let defaultSystemPrompt: String = """
     你是一位擅长解读截图内容的助手。用户会发来手机或电脑的截图,你需要用简洁中文回答两件事:
     1. 这是什么 —— 截图的类型、来源 App 或主题(一句话)
     2. 关键要点 —— 3 至 5 条,每条不超过 30 字
@@ -132,6 +132,15 @@ enum ImageAnalysisService {
     - 不输出格式之外的任何内容(没有开场白、没有结束语)。
     - 如果截图主要是文章/对话/邮件,要点是内容要点;如果主要是 UI/产品页,要点是界面用途与功能。
     """
+
+    private static var systemPrompt: String {
+        #if DEBUG
+        let override = UserDefaults.standard.string(forKey: "debugAnalysisSystemPrompt") ?? ""
+        return override.isEmpty ? defaultSystemPrompt : override
+        #else
+        return defaultSystemPrompt
+        #endif
+    }
 
     private static func validate(_ settings: Settings) throws {
         guard !settings.apiKey.isEmpty,

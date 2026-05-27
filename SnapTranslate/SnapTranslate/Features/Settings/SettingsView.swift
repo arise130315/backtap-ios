@@ -115,6 +115,14 @@ struct SettingsView: View {
             Section("关于") {
                 LabeledContent("版本", value: "v1.0")
             }
+
+            #if DEBUG
+            Section {
+                NavigationLink("开发者选项") {
+                    DeveloperOptionsView()
+                }
+            }
+            #endif
         }
         .navigationTitle("设置")
     }

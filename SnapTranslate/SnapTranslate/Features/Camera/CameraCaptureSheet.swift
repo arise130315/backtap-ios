@@ -194,7 +194,9 @@ struct CameraCaptureSheet: View {
             VStack {
                 Spacer()
                 ScrollView(showsIndicators: false) {
-                    Text(text)
+                    // 走 AttributedString(markdown:) 解析 **bold**,而不是直接 Text(text) 让 ** 原样显示。
+                    // .inlineOnlyPreservingWhitespace 只处理行内语法,保留换行;bullet 仍以 "- " 形式呈现,可接受。
+                    Text(markdownAttributed(text))
                         .font(.body)
                         .foregroundStyle(.white)
                         .padding(16)
@@ -207,6 +209,15 @@ struct CameraCaptureSheet: View {
             }
             .ignoresSafeArea()
         }
+    }
+
+    /// 把 LLM 返回的 Markdown 文本(含 **bold**)转成 AttributedString,让 SwiftUI Text 渲染粗体。
+    /// 解析失败兜底成纯文本,不会崩溃。
+    private func markdownAttributed(_ raw: String) -> AttributedString {
+        (try? AttributedString(
+            markdown: raw,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(raw)
     }
 
     private var closeButton: some View {

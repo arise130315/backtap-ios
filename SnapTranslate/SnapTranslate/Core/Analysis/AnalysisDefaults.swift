@@ -22,6 +22,18 @@ enum AnalysisDefaults {
     nonisolated static let model = "qwen3-vl-flash"
 
     nonisolated static var settings: ImageAnalysisService.Settings {
-        ImageAnalysisService.Settings(baseURL: baseURL, apiKey: Secrets.qwenAPIKey, model: model)
+        #if DEBUG
+        let d = UserDefaults.standard
+        let urlOverride = d.string(forKey: "debugAnalysisDefaultBaseURL") ?? ""
+        let keyOverride = d.string(forKey: "debugAnalysisDefaultAPIKey") ?? ""
+        let modelOverride = d.string(forKey: "debugAnalysisDefaultModel") ?? ""
+        return ImageAnalysisService.Settings(
+            baseURL: urlOverride.isEmpty ? baseURL : urlOverride,
+            apiKey: keyOverride.isEmpty ? Secrets.qwenAPIKey : keyOverride,
+            model: modelOverride.isEmpty ? model : modelOverride
+        )
+        #else
+        return ImageAnalysisService.Settings(baseURL: baseURL, apiKey: Secrets.qwenAPIKey, model: model)
+        #endif
     }
 }

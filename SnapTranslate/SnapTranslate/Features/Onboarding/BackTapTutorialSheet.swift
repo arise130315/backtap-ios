@@ -1,69 +1,53 @@
 import SwiftUI
-import UIKit
 
 /// 教学半屏 sheet:教用户怎么把已添加的快捷指令绑定到「轻点背面」。
 ///
-/// iOS 不允许 App 用 deeplink 直接跳「设置 → 辅助功能 → 触控 → 轻点背面」子页面
-/// (`App-Prefs:` 这种私有 URL 早就被禁,提交会被审核拒),所以只能跳本 App 的
-/// 设置页 + 配图文教学,让用户知道接下来该去哪。
+/// 设计取舍:iOS 不允许 App deeplink 到设置 App 的根目录或任意子页面
+/// (`UIApplication.openSettingsURLString` 只能跳本 App 的设置页;`App-Prefs:` 私有 URL 审核会拒)。
+/// 跳到本 App 设置页对用户是"跳错地方"的失望感,反而比不跳更差,所以直接不放跳转按钮 ——
+/// 用户看完视频教学自己开设置 App 搜索更可控。
 ///
-/// 视频/动图素材后续真机录制后替换,目前用浅灰色 + 播放图标占位。
+/// 排版:两条步骤文字在上,一个循环视频在下。用户先读懂"要做什么",再看怎么做。
+/// 视频 `backtap-tutorial.mp4` 已压缩到 245 KB(540×720 H.264 baseline 静音),内嵌 bundle 直接播放。
 struct BackTapTutorialSheet: View {
+    /// 当前 tab —— 决定描述文案、步骤 2 选哪个快捷指令名。
+    let mode: ContentMode
+
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    Text("敲两下手机背面,任意 App 里都能一键识屏翻译")
+                VStack(alignment: .leading, spacing: 20) {
+                    Text(subtitleText)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 20)
                         .padding(.top, 4)
 
-                    stepCard(
-                        index: 1,
-                        title: "打开「设置」→「辅助功能」"
-                    )
-                    stepCard(
-                        index: 2,
-                        title: "选「触控」→「轻点背面」→「轻点两下」"
-                    )
-                    stepCard(
-                        index: 3,
-                        title: "选中你保存的「快捷翻译」或「快捷分析」"
-                    )
+                    VStack(alignment: .leading, spacing: 14) {
+                        stepRow(
+                            index: 1,
+                            title: "在「设置」顶部搜索框搜「轻点背面」并选中「轻点两下」"
+                        )
+                        stepRow(
+                            index: 2,
+                            title: step2Text
+                        )
+                    }
+                    .padding(.horizontal, 20)
+
+                    LoopingVideoPlayer(resourceName: "backtap-tutorial")
+                        .aspectRatio(540.0 / 720.0, contentMode: .fit)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                        .padding(.horizontal, 20)
 
                     Spacer(minLength: 16)
                 }
             }
             .scrollIndicators(.hidden)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: 12) {
-                    Button {
-                        if let url = URL(string: UIApplication.openSettingsURLString) {
-                            UIApplication.shared.open(url)
-                        }
-                    } label: {
-                        Text("打开系统设置")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(Color.accentColor, in: .capsule)
-                    }
-                    Button("稍后再说") {
-                        dismiss()
-                    }
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 4)
-                .background(.regularMaterial)
-            }
-            .navigationTitle("3 步绑定背面双击")
+            .navigationTitle("绑定轻点背面")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -79,44 +63,56 @@ struct BackTapTutorialSheet: View {
                 }
             }
         }
-        .presentationDetents([.large])
+        .presentationDetents([.fraction(0.88)])
         .presentationDragIndicator(.hidden)
     }
 
-    /// 单个步骤卡:浅灰圆角矩形视频占位(16:9)+ 蓝底步骤数字 + 文字。
-    private func stepCard(index: Int, title: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
-                Image(systemName: "play.rectangle")
-                    .font(.system(size: 32))
-                    .foregroundStyle(.tertiary)
-            }
-            .aspectRatio(16.0 / 9.0, contentMode: .fit)
-
-            HStack(alignment: .top, spacing: 8) {
-                Text("\(index)")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 22, height: 22)
-                    .background(Color.accentColor, in: .circle)
-
-                Text(title)
-                    .font(.system(size: 16))
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 1)
-            }
+    /// 副文案,跟随当前 tab 切换。
+    private var subtitleText: String {
+        switch mode {
+        case .translate: return "敲两下手机背面，在任意APP里都能一键识屏翻译"
+        case .analyze:   return "绑定轻敲背面，在任意APP里都能一键识屏分析"
         }
-        .padding(.horizontal, 20)
+    }
+
+    /// 步骤 2 文案,跟随当前 tab 切换要选的快捷指令名。
+    private var step2Text: String {
+        switch mode {
+        case .translate: return "滚动到列表底部，选中「识屏翻译」"
+        case .analyze:   return "滚动到列表底部，选中「识屏分析」"
+        }
+    }
+
+    /// 单行步骤:蓝底圆形数字 + 文字。不再带视频占位 —— 视频现在是 sheet 底部独立一段。
+    private func stepRow(index: Int, title: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text("\(index)")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(Color.accentColor, in: .circle)
+
+            Text(title)
+                .font(.system(size: 16))
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 1)
+        }
     }
 }
 
-#Preview {
+#Preview("翻译 tab") {
     Color.gray
         .ignoresSafeArea()
         .sheet(isPresented: .constant(true)) {
-            BackTapTutorialSheet()
+            BackTapTutorialSheet(mode: .translate)
+        }
+}
+
+#Preview("分析 tab") {
+    Color.gray
+        .ignoresSafeArea()
+        .sheet(isPresented: .constant(true)) {
+            BackTapTutorialSheet(mode: .analyze)
         }
 }

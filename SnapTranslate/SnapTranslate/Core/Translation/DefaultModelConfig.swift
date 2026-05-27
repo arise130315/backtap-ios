@@ -15,6 +15,18 @@ enum DefaultModelConfig {
     nonisolated static let model = "deepseek-chat"
 
     nonisolated static var settings: LLMTranslationService.Settings {
-        LLMTranslationService.Settings(baseURL: baseURL, apiKey: apiKey, model: model)
+        #if DEBUG
+        let d = UserDefaults.standard
+        let urlOverride = d.string(forKey: "debugTranslationDefaultBaseURL") ?? ""
+        let keyOverride = d.string(forKey: "debugTranslationDefaultAPIKey") ?? ""
+        let modelOverride = d.string(forKey: "debugTranslationDefaultModel") ?? ""
+        return LLMTranslationService.Settings(
+            baseURL: urlOverride.isEmpty ? baseURL : urlOverride,
+            apiKey: keyOverride.isEmpty ? apiKey : keyOverride,
+            model: modelOverride.isEmpty ? model : modelOverride
+        )
+        #else
+        return LLMTranslationService.Settings(baseURL: baseURL, apiKey: apiKey, model: model)
+        #endif
     }
 }

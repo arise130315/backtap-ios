@@ -137,7 +137,7 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showBackTapTutorial) {
-            BackTapTutorialSheet()
+            BackTapTutorialSheet(mode: mode)
         }
         .fullScreenCover(isPresented: $showCameraCapture) {
             CameraCaptureSheet(
@@ -261,7 +261,7 @@ struct ContentView: View {
                 VStack(spacing: 12) {
                     Image("img_none")
                         .opacity(0.9)
-                    Text("翻译外文 App，海外网页，游戏菜单")
+                    Text("翻译外文APP、海外网页等")
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                 }
@@ -591,12 +591,12 @@ struct ContentView: View {
         switch pageMode {
         case .translate:
             PhotosPicker(selection: $pickerItem, matching: .images) {
-                cardBottomButtonLabel(icon: "IconPhoto", text: "选择图片")
+                cardBottomButtonLabel(icon: "IconPhoto", text: "选图翻译")
             }
             .buttonStyle(.plain)
         case .analyze:
             PhotosPicker(selection: $analysisPickerItem, matching: .images) {
-                cardBottomButtonLabel(icon: "IconPhoto", text: "选择图片")
+                cardBottomButtonLabel(icon: "IconPhoto", text: "选图分析")
             }
             .buttonStyle(.plain)
         }

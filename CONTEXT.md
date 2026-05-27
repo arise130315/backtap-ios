@@ -25,9 +25,89 @@
 
 **新增改动(2026-05-27,未 commit)**:用户在快捷指令 App 内把两条 Shortcut 改名「翻译截图」→「识屏翻译」、「分析截图」→「识屏分析」并重新分享,`ContentView.swift:94-95` 的两个 iCloud Shortcut URL 已同步更新为新链接。
 
+**Commit `441caeb` 已 push**(2026-05-27 晚):横屏拍摄+Splash 暗色+空状态文案+AppShortcuts+Intent 缺图引导+教学 sheet+Shortcut URL 更新,17 files +1268 -153。
+
+---
+
+## 2026-05-28 会话新增改动(未 commit)
+
+### 开发者选项整套(Debug-only)
+
+为 prompt 调试 + API 配置切换 + 余额查询 + 系统状态查看做的隐藏入口。`SettingsView` 底部 `#if DEBUG` 包了一个「开发者选项」NavigationLink,正式发布版本对用户不可见。
+
+包含 5 个二级页:
+- **分析提示词** (`AnalysisPromptPlaygroundView`):TextEditor 改 `debugAnalysisSystemPrompt` UserDefaults 覆盖,PhotosPicker 选图 → 调 `ImageAnalysisService.analyze()` → 显示原始输出 + 耗时
+- **翻译提示词** (`TranslationPromptPlaygroundView`):同款交互,改 `debugTranslationSystemPrompt`,测试用文本输入(每行一段) → 直接调 `LLMTranslationService.translate()`
+- **API 管理面板** (`APIManagementView`):分析(Qwen)+翻译(DeepSeek)两段,每段四行(当前使用 / Base URL / API Key / 模型)+ 模型选择按钮 + 余额查询
+- **UserDefaults 查看器** (`UserDefaultsInspectorView`):列所有持久化 key-value,长字符串截断
+- **清除所有 UserDefaults** (按钮,二次 confirmationDialog)
+
+### 配套核心改动
+
+- `ImageAnalysisService`:`systemPrompt` 改成 computed var,DEBUG 时读 `debugAnalysisSystemPrompt`,空字符串回落 `defaultSystemPrompt`(原静态字符串改名暴露给 playground)
+- `LLMTranslationService`:同款 pattern,新增 `defaultSystemPrompt` 静态属性 + DEBUG override 逻辑
+- `AnalysisDefaults.settings` / `DefaultModelConfig.settings`:DEBUG 时读三个 `debugXxxDefault*` UserDefaults key 做整套覆盖(Base URL / API Key / 模型),空字符串回落代码硬编码
+- 这意味着所有调用 `*.settings` 的地方(AppIntent/主 App)**不需要改一行代码**——覆盖逻辑在计算属性里,对外完全透明
+
+### DeepSeek 余额 + 模型列表服务
+
+- `Core/Translation/DeepSeekBalanceService.swift`:`GET /user/balance`,Bearer 同 Chat Completions 用的 Key,解析 `balance_infos` 多币种结构
+- `Features/Settings/ModelListService.swift`:`GET /models` OpenAI 兼容协议通用拉模型列表(DeepSeek/OpenAI/OpenRouter 都支持,Qwen DashScope 兼容模式不支持会 4xx)
+- `Features/Settings/ModelPickerSheet.swift`:半屏 sheet,自动 `.task` 拉列表,失败显示清晰错误 + 重试按钮,选中即 `selectedModel = id; dismiss()`
+
+### 主 App 改动
+
+1. **拍照分析 Markdown 渲染修复** (`CameraCaptureSheet.swift:197`):原 `Text(text)` 直接展示 LLM 输出,`**内容**` 星号原样显示。改为 `Text(AttributedString(markdown: ...))` + `inlineOnlyPreservingWhitespace` 选项,粗体正确渲染。不复用 `SelectableMarkdownText` 是因为它前景色写死 `.label`,跟相机黑底冲突
+2. **历史记录「全部清除」**:`HistoryView` 编辑模式下底部工具栏多一个红色「全部清除」按钮,二次系统 alert 确认。**作用域:只清当前 tab**(在翻译 tab 就只清翻译,分析 tab 就只清分析),避免一次手滑两边都丢
+3. **历史空状态文案**:翻译/分析两 tab 的空状态描述改为「只会记录拍照X和选图X的内容(快捷识屏X不会被记录,用完即走)」——明确告诉用户端外 Shortcut 调用不入库,跟产品决策一致(见下方决策记录)
+4. **翻译 tab 空状态文案**:`翻译外文 App，海外网页，游戏菜单` → `翻译外文APP、海外网页等`
+5. **拍图按钮文案**:翻译 tab 改「选图翻译」,分析 tab 改「选图分析」(原都是「选择图片」)
+6. **轻点背面教学 sheet 改版**:
+   - 3 步 → **2 步**(用 iOS 设置搜索框跳过菜单层级):① 在「设置」顶部搜索框搜「轻点背面」并选中「轻点两下」 ② 滚动到列表底部,选中「识屏翻译/识屏分析」
+   - **去掉**「打开系统设置」+「稍后再说」按钮(iOS 不允许 deeplink 到设置 App 根目录或子页面,跳本 App 设置页反而是"跳错地方"的失望感)
+   - **加入真机录的 mp4 视频**:原视频 1.84MB(1080×1440)用 ffmpeg 压到 **245 KB**(540×720 H.264 baseline 无音轨),内嵌 bundle 直接播。复用现有 `LoopingVideoPlayer`,3:4 比例,圆角 30
+   - 标题「2 步绑定背面双击」→「绑定轻点背面」,副文案精修
+   - **mode-aware**:`BackTapTutorialSheet(mode: ContentMode)` 根据当前 tab 切换副文案和步骤 2 的快捷指令名;`ContentView.swift:140` 传当前 `mode` 进去
+   - sheet detent: `.large` → `.fraction(0.88)`
+
+---
+
+## 重要产品决策记录
+
+### 端外(轻点背面)调用不入库,坚持"用后即焚"
+
+讨论结论:**不做** AppIntent 端外路径写历史。理由:
+- 端外路径用户的心理预期是"快、临时、不留痕",写库破坏"敲一下就走"的轻量感
+- 主 App 历史已经服务"主动打开 App、选图、看完整版"这类心智,两条路径应有不同形态
+- 端外有误触风险(误敲背面/误按操作按钮),写库会留下莫名其妙的截图
+- 工程成本不小(要加 App Group capability + 改 SwiftData 容器路径 + 老用户数据迁移)
+- 真有"误关后悔"场景,可用 snippet 加"保存到相册"按钮解决,不需要数据库
+
+后续如果用户反馈"主 App 历史空空看不出价值",再考虑加 opt-in 开关。
+
+### 是否做登录账号系统
+
+讨论结论:**不做**。理由:
+- 工具型 App 加登录漏斗损失 30-60% 用户
+- 付费走 StoreKit/IAP(Apple ID 即身份),云同步走 iCloud/CloudKit(零代码)
+- 用户真正面临的不是"要不要登录",而是"API Key 硬编码进 IPA 会被盗刷"
+- 解法是中间层(自建 Cloudflare Workers 代理 + 设备 ID 限频 + StoreKit 收据验证)
+
+参考成功工具 App(CleanShot/Bear/Things/Reeder…)无一有账号系统。
+
+### 国内合规风险
+
+讨论结论:**先海外、后国内**。
+- 千问/DeepSeek 底层 API 已备案,但 App 自己作为"服务方"按现行口径也应独立备案(国区上架)
+- 当前路线建议:先 App Store 美区/港台/东南亚,业务起量再考虑国区合规流程
+- 海外发布前必补:隐私政策(明确写图片传给阿里云)、首次使用分析功能的单独同意弹窗(PIPL+GDPR 通用)、Privacy Manifest
+
+---
+
 ## 正在做什么
 
-横屏拍摄、Splash 暗色适配、首页空状态场景文案、AppShortcutsProvider 注册、Intent 缺图引导、轻点背面教学 sheet 已落地待真机验证。
+开发者选项 5 个二级页全部落地,DeepSeek 余额查询接通,模型列表自动拉取做完。
+拍照分析 markdown 修复完成。教学 sheet 改成 2 步 + 真机视频。各种文案精修。
 
 ## 未解决的问题 / 卡点
 

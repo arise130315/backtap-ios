@@ -17,6 +17,16 @@ enum LLMTranslationService {
     /// 上层应当静默吞掉,直接给用户看原图,而不是弹"翻译失败"提示。
     struct SameLanguageError: Error {}
 
+    static let defaultSystemPrompt: String = """
+        You are a professional translator. Translate every input segment into the user's target language.
+
+        Strict rules:
+        1. ALWAYS translate. Never echo the source text. The source may be in any language (Chinese, English, Japanese, Korean, or mixed) — you must always produce output in the target language.
+        2. Even if the source is already in the same language as the target, rephrase it in the target language. Do not return identical text.
+        3. Keep as-is only: pure numbers (e.g. "5.43"), URLs, emails, pure symbols (•, -, +), and well-known international proper nouns (NVIDIA, iOS, Apple, GDP, Python).
+        4. Output ONLY a JSON object: {"translations": ["...", "..."]}. No prose, no markdown.
+        """
+
     static func translate(_ texts: [String], targetLanguageDisplayName: String, settings: Settings) async throws -> [String] {
         guard !settings.apiKey.isEmpty else {
             throw LLMError(message: "API Key 未配置")
@@ -29,15 +39,12 @@ enum LLMTranslationService {
             .map { "[\($0.offset)] \($0.element)" }
             .joined(separator: "\n")
 
-        let systemPrompt = """
-        You are a professional translator. Translate every input segment into the user's target language.
-
-        Strict rules:
-        1. ALWAYS translate. Never echo the source text. The source may be in any language (Chinese, English, Japanese, Korean, or mixed) — you must always produce output in the target language.
-        2. Even if the source is already in the same language as the target, rephrase it in the target language. Do not return identical text.
-        3. Keep as-is only: pure numbers (e.g. "5.43"), URLs, emails, pure symbols (•, -, +), and well-known international proper nouns (NVIDIA, iOS, Apple, GDP, Python).
-        4. Output ONLY a JSON object: {"translations": ["...", "..."]}. No prose, no markdown.
-        """
+        #if DEBUG
+        let overridePrompt = UserDefaults.standard.string(forKey: "debugTranslationSystemPrompt") ?? ""
+        let systemPrompt = overridePrompt.isEmpty ? Self.defaultSystemPrompt : overridePrompt
+        #else
+        let systemPrompt = Self.defaultSystemPrompt
+        #endif
 
         let userPrompt = """
         目标语言 / Target language: \(targetLanguageDisplayName)
