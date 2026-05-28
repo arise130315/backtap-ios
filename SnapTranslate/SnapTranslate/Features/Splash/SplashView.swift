@@ -1,6 +1,6 @@
 //
 //  SplashView.swift
-//  SnapTranslate
+//  backtap
 //
 //  100% 还原自 Figma 设计稿(node 205:161 / 2085:13600 暗色)。设计画板基准 iPhone 16 Pro 尺寸 402×874。
 //

@@ -1,6 +1,6 @@
 //
 //  NotificationBar.swift
-//  SnapTranslate
+//  backtap
 //
 //  首页快捷指令卡片上方的一条胶囊形彩色提示。
 //  Figma 节点:221:526(浅色) / 227:2524(深色)。

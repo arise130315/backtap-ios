@@ -1,6 +1,6 @@
 //
 //  PhotoDisplayView.swift
-//  SnapTranslate
+//  backtap
 //
 //  UIViewRepresentable 包 UIImageView,跟 CameraPreviewView 行为对称。
 //

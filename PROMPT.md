@@ -34,7 +34,7 @@
 ```
 SnapTranslate/                       # 主 App target（SwiftUI）
 ├── App/
-│   ├── SnapTranslateApp.swift       # @main 入口
+│   ├── BacktapApp.swift             # @main 入口
 │   └── AppIntents/                  # App Intents（让 Shortcuts 调用）
 │       └── TranslateScreenshotIntent.swift
 ├── Features/
@@ -56,13 +56,6 @@ SnapTranslate/                       # 主 App target（SwiftUI）
 │   └── ImageUtils/
 │       └── BackgroundColorSampler.swift   # 估算文字框背景色
 └── Resources/
-
-SnapTranslateShare/                  # Action Extension target
-├── ActionViewController.swift       # 接收截图 → 调用 Core 服务 → 返回结果
-└── Info.plist                       # NSExtensionActivationRule 限定 image
-
-Shared/                              # 主 App 和 Extension 共享代码（Framework）
-└── (Core/ 里的全部内容放这里)
 ```
 
 ### 4.2 关键技术栈

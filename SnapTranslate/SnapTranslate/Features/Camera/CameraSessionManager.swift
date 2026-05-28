@@ -1,6 +1,6 @@
 //
 //  CameraSessionManager.swift
-//  SnapTranslate
+//  backtap
 //
 //  封装 AVCaptureSession + 后置相机 + AVCapturePhotoOutput 的拍照流程。
 //  - configure() 在后台 queue 配置 session(只调一次)

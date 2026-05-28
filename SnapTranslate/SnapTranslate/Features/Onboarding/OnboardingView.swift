@@ -1,6 +1,6 @@
 //
 //  OnboardingView.swift
-//  SnapTranslate
+//  backtap
 //
 //  启动引导页。改版后只有「快捷翻译」「快捷分析」两页。
 //  Figma:232:2763(翻译) / 232:2871(分析),画板 402×874。

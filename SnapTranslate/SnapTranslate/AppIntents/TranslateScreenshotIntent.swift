@@ -16,7 +16,7 @@ struct TranslateScreenshotIntent: AppIntent {
         // 用户在「快捷指令」App 内直接点动作卡片(没拍截图作为输入)会走到这里——
         // 给一个引导文案,替代系统默认的"无法解析图片"错误。
         guard let image else {
-            throw SnapTranslateIntentError.missingImage
+            throw BacktapIntentError.missingImage
         }
 
         // 翻译结果是一张图,纯 Dialog 装不下;iOS 26 给所有 ShowsSnippetView 都加了黄底+禁用图标

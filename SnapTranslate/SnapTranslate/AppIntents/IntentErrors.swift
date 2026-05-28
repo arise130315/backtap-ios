@@ -5,7 +5,7 @@ import AppIntents
 /// 用户在「快捷指令」App 内直接点动作卡片(没拍截图作为输入)会触发 `.missingImage`,
 /// 系统会用 `localizedStringResource` 的中文文案展示给用户,替代之前冷冰冰的
 /// "无法解析图片"系统错误,引导用户回主 App 完成完整配置。
-enum SnapTranslateIntentError: Error, CustomLocalizedStringResourceConvertible {
+enum BacktapIntentError: Error, CustomLocalizedStringResourceConvertible {
     case missingImage
 
     var localizedStringResource: LocalizedStringResource {

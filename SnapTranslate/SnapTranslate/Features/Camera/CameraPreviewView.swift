@@ -1,6 +1,6 @@
 //
 //  CameraPreviewView.swift
-//  SnapTranslate
+//  backtap
 //
 //  SwiftUI 包装 AVCaptureVideoPreviewLayer 的相机预览。
 //  通过 UIViewRepresentable 实现,view.layer 直接是 AVCaptureVideoPreviewLayer

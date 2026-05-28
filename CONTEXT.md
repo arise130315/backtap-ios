@@ -27,6 +27,18 @@
 
 **新增改动(2026-05-28,未 commit)**:**删除 SnapTranslateShare target + 整个 `SnapTranslateShare/` 文件夹**。这是 2026/5/13 创建的 Action Extension MVP(`com.apple.ui-services`),mock 译文 `【译】xxx` 占位,主路线后来转到 AppIntent + 轻点背面后被默默放弃。审核风险点(mock 内容上架会被驳回)+ 零引用,通过 Xcode UI "Move to Trash" 删 target 再删文件夹,pbxproj 残留引用归零。
 
+**新增改动(2026-05-28 晚,未 commit)**:**项目代号 `SnapTranslate` → `backtap` 全面重命名**。
+- GitHub 仓库:`SnapTranslate` → **`backtap-ios`**,本地 git remote 同步更新
+- Xcode Target:`SnapTranslate` → **`backtap`**(全小写,品牌一致)
+- Bundle ID:`com.yangjianfeng.SnapTranslate` → **`cn.arise.backtap`**(arise 作开发者前缀,后续 onestyle 等也用 `cn.arise.*`)
+- 3 个 Swift 类型(必须大驼峰):`SnapTranslateApp` → `BacktapApp`,`SnapTranslateIntentError` → `BacktapIntentError`,`SnapTranslateAppShortcuts` → `BacktapAppShortcuts`
+- 2 个 .swift 文件名同步:`SnapTranslateApp.swift` → `BacktapApp.swift`,`SnapTranslateAppShortcuts.swift` → `BacktapAppShortcuts.swift`
+- 13 处文件头注释 `//  SnapTranslate` → `//  backtap`(批量 sed)
+- 项目根 `AGENTS.md` / `PROMPT.md` 同步更新 GitHub URL + 删除已不存在的 `SnapTranslateShare/` 段
+- 全局 `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` / `~/.shared-agent-memory/GLOBAL.md` 项目表 GitHub URL 同步更新
+- Build Succeeded ✅,中间有 2 处 `SnapTranslateIntentError` 引用没被 Xcode Refactor 跟上(`AnalyzeScreenshotIntent.swift:18` / `TranslateScreenshotIntent.swift:19`),手动修复
+- **未做**:Layer 3 的外层 `SnapTranslate.xcodeproj` 文件名 + 内层源代码文件夹 `SnapTranslate/SnapTranslate/` 待用户在 Xcode 内决定是否改名为 `backtap/`
+
 **Commit `441caeb` 已 push**(2026-05-27 晚):横屏拍摄+Splash 暗色+空状态文案+AppShortcuts+Intent 缺图引导+教学 sheet+Shortcut URL 更新,17 files +1268 -153。
 
 ---

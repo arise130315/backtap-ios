@@ -1,6 +1,6 @@
 //
 //  LoopingVideoPlayer.swift
-//  SnapTranslate
+//  backtap
 //
 //  纯视频循环播放控件:无 controls / 自动播放 / 静音 / 无缝循环。
 //  实现走 UIViewRepresentable + AVQueuePlayer + AVPlayerLooper(Apple 推荐的无缝循环方案)。

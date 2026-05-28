@@ -1,6 +1,6 @@
 //
 //  CameraCaptureSheet.swift
-//  SnapTranslate
+//  backtap
 //
 //  全屏自定义相机面板:
 //  - 阶段 1(预览):CameraPreviewView 实时预览 + 底部 shutter 圆形按钮

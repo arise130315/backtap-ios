@@ -12,7 +12,7 @@ import AppIntents
 ///     2. Spotlight 搜索时显示动作卡片
 /// - 保留 ContentView 里的 iCloud Shortcut 链接,作为新手"一键导入完整复合 Shortcut
 ///   (含拍摄屏幕快照 + 调用本 Intent)"的最短路径。
-struct SnapTranslateAppShortcuts: AppShortcutsProvider {
+struct BacktapAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: TranslateScreenshotIntent(),

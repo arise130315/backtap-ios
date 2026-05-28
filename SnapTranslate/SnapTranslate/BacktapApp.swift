@@ -1,6 +1,6 @@
 //
-//  SnapTranslateApp.swift
-//  SnapTranslate
+//  BacktapApp.swift
+//  backtap
 //
 //  Created by 杨剑峰 on 2026/5/12.
 //
@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct SnapTranslateApp: App {
+struct BacktapApp: App {
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     @State private var showSplash = true
 
