@@ -18,8 +18,10 @@ struct CameraPreviewView: UIViewRepresentable {
     let session: AVCaptureSession
     /// 由父 view 按 UIDevice.current.orientation 算好,见 CameraSessionManager.videoRotationAngle(for:)
     let videoRotationAngle: CGFloat
-    /// 用户点击预览层时回调,参数是归一化设备坐标(0..1, 0..1),可直接传给 AVCaptureDevice.focusPointOfInterest
-    var onTap: ((CGPoint) -> Void)? = nil
+    /// 用户点击预览层时回调:
+    /// - `viewPoint`:在 SwiftUI 父视图坐标系内的点击位置(给对焦框 UI 用)
+    /// - `devicePoint`:归一化设备坐标(0..1, 0..1),直接传给 `AVCaptureDevice.focusPointOfInterest`
+    var onTap: ((_ viewPoint: CGPoint, _ devicePoint: CGPoint) -> Void)? = nil
 
     func makeUIView(context: Context) -> PreviewContainerView {
         let view = PreviewContainerView()
@@ -36,7 +38,7 @@ struct CameraPreviewView: UIViewRepresentable {
 }
 
 final class PreviewContainerView: UIView {
-    var onTap: ((CGPoint) -> Void)?
+    var onTap: ((_ viewPoint: CGPoint, _ devicePoint: CGPoint) -> Void)?
     /// 缓存待应用的旋转角度。makeUIView/updateUIView 调用 setVideoRotationAngle 时,
     /// session.connection 可能还没准备好(input 没添加完),layoutSubviews 兜底再设一次。
     private var pendingVideoRotationAngle: CGFloat = 90
@@ -69,7 +71,9 @@ final class PreviewContainerView: UIView {
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         let layerPoint = gesture.location(in: self)
         let devicePoint = previewLayer.captureDevicePointConverted(fromLayerPoint: layerPoint)
-        onTap?(devicePoint)
+        // layerPoint 是 self(预览 view)坐标系内的点 —— 跟 SwiftUI 父视图的坐标系一致,
+        // 直接给 SwiftUI 的 .position() 用即可,不需要额外转换。
+        onTap?(layerPoint, devicePoint)
     }
 
     func setSession(_ session: AVCaptureSession) {

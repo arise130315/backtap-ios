@@ -35,6 +35,14 @@ struct CameraCaptureSheet: View {
     @State private var permissionDenied = false
     /// 分析模式:复制按钮的"已复制"反馈,1.2 秒后还原(跟 ContentView 同款)
     @State private var analysisCopied = false
+    /// 对焦框 UI 状态:点击位置 + 唯一 ID(连续点不同位置时用 id 让 transition 重新触发)
+    /// nil 表示不显示。1.2 秒后自动清空。
+    @State private var focusIndicator: FocusIndicator?
+
+    private struct FocusIndicator: Equatable {
+        let id: UUID
+        let point: CGPoint
+    }
 
     enum SaveStatus {
         case idle, saving, success, failed
@@ -165,13 +173,26 @@ struct CameraCaptureSheet: View {
         if capturedOriginal == nil {
             // 阶段 1:预览 + 点击对焦,强制撑满父容器
             // videoRotationAngle 固定 90° (portrait), sheet rotationEffect 处理视觉旋转
-            CameraPreviewView(
-                session: camera.session,
-                videoRotationAngle: previewVideoRotationAngle,
-                onTap: { devicePoint in
-                    camera.focus(at: devicePoint)
+            ZStack {
+                CameraPreviewView(
+                    session: camera.session,
+                    videoRotationAngle: previewVideoRotationAngle,
+                    onTap: { viewPoint, devicePoint in
+                        camera.focus(at: devicePoint)
+                        triggerFocusIndicator(at: viewPoint)
+                    }
+                )
+                if let indicator = focusIndicator {
+                    focusReticle
+                        .position(indicator.point)
+                        .id(indicator.id)
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 1.5).combined(with: .opacity),
+                            removal: .opacity
+                        ))
+                        .allowsHitTesting(false)
                 }
-            )
+            }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea()
         } else if let resultImage {
@@ -218,6 +239,42 @@ struct CameraCaptureSheet: View {
             markdown: raw,
             options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
         )) ?? AttributedString(raw)
+    }
+
+    /// 对焦框视觉:80×80 蓝色方框 + 四边中点小刻度。
+    /// 用 Color.blue 跟 App 主色保持一致。
+    private var focusReticle: some View {
+        ZStack {
+            Rectangle()
+                .stroke(Color.blue, lineWidth: 1.2)
+                .frame(width: 80, height: 80)
+            // 四个边中点小刻度(向内),让框看起来更"专业"一点
+            ForEach(0..<4) { index in
+                Rectangle()
+                    .fill(Color.blue)
+                    .frame(width: 1.2, height: 6)
+                    .offset(y: -40 + 3)
+                    .rotationEffect(.degrees(Double(index) * 90))
+            }
+        }
+        .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 0)
+    }
+
+    /// 用户点击预览层时调用:记录 view 坐标并启动 1.2 秒后自动消失的定时器。
+    /// 通过 UUID 比对保证 —— 中途用户再点别处时,旧定时器到期不会误清掉新指示器。
+    private func triggerFocusIndicator(at point: CGPoint) {
+        let newID = UUID()
+        withAnimation(.easeOut(duration: 0.18)) {
+            focusIndicator = FocusIndicator(id: newID, point: point)
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(1.2))
+            if focusIndicator?.id == newID {
+                withAnimation(.easeIn(duration: 0.3)) {
+                    focusIndicator = nil
+                }
+            }
+        }
     }
 
     private var closeButton: some View {
