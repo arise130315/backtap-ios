@@ -25,9 +25,9 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		7560EED82FB3811E00FA5EF0 /* SnapTranslate */ = {
+		7560EED82FB3811E00FA5EF0 /* backtap */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SnapTranslate;
+			path = backtap;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -46,7 +46,7 @@
 		7560EECD2FB3811E00FA5EF0 = {
 			isa = PBXGroup;
 			children = (
-				7560EED82FB3811E00FA5EF0 /* SnapTranslate */,
+				7560EED82FB3811E00FA5EF0 /* backtap */,
 				7560EEF32FB396B300FA5EF0 /* Frameworks */,
 				7560EED72FB3811E00FA5EF0 /* Products */,
 			);
@@ -85,7 +85,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				7560EED82FB3811E00FA5EF0 /* SnapTranslate */,
+				7560EED82FB3811E00FA5EF0 /* backtap */,
 			);
 			name = backtap;
 			packageProductDependencies = (

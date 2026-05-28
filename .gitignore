@@ -23,7 +23,8 @@ Pods/
 Carthage/Build/
 
 # Local secrets (API keys etc.) — never commit
-SnapTranslate/SnapTranslate/Core/Analysis/Secrets.swift
+# 用 glob 避免文件夹改名时 ignore 失效
+**/Secrets.swift
 
 # Claude Code 本地状态(worktrees / 缓存等)
 .claude/
