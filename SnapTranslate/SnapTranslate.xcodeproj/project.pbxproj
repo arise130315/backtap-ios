@@ -6,21 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		7560EEF52FB396B300FA5EF0 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7560EEF42FB396B300FA5EF0 /* UniformTypeIdentifiers.framework */; };
-		7560EF012FB396B400FA5EF0 /* SnapTranslateShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7560EEF22FB396B300FA5EF0 /* SnapTranslateShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-/* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		7560EEFF2FB396B400FA5EF0 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7560EECE2FB3811E00FA5EF0 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7560EEF12FB396B300FA5EF0;
-			remoteInfo = SnapTranslateShare;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXCopyFilesBuildPhase section */
 		7560EF062FB396B400FA5EF0 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -28,7 +13,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				7560EF012FB396B400FA5EF0 /* SnapTranslateShare.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -37,44 +21,13 @@
 
 /* Begin PBXFileReference section */
 		7560EED62FB3811E00FA5EF0 /* SnapTranslate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SnapTranslate.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		7560EEF22FB396B300FA5EF0 /* SnapTranslateShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SnapTranslateShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7560EEF42FB396B300FA5EF0 /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7560EF022FB396B400FA5EF0 /* Exceptions for "SnapTranslateShare" folder in "SnapTranslateShare" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 7560EEF12FB396B300FA5EF0 /* SnapTranslateShare */;
-		};
-		7560EF0A2FB39A6600FA5EF0 /* Exceptions for "SnapTranslate" folder in "SnapTranslateShare" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Core/ImageUtils/BackgroundColorSampler.swift,
-				Core/OCR/VisionOCRService.swift,
-				Core/Rendering/LayoutPreservingRenderer.swift,
-			);
-			target = 7560EEF12FB396B300FA5EF0 /* SnapTranslateShare */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7560EED82FB3811E00FA5EF0 /* SnapTranslate */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				7560EF0A2FB39A6600FA5EF0 /* Exceptions for "SnapTranslate" folder in "SnapTranslateShare" target */,
-			);
 			path = SnapTranslate;
-			sourceTree = "<group>";
-		};
-		7560EEF62FB396B300FA5EF0 /* SnapTranslateShare */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				7560EF022FB396B400FA5EF0 /* Exceptions for "SnapTranslateShare" folder in "SnapTranslateShare" target */,
-			);
-			path = SnapTranslateShare;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -87,14 +40,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		7560EEEF2FB396B300FA5EF0 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				7560EEF52FB396B300FA5EF0 /* UniformTypeIdentifiers.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -102,7 +47,6 @@
 			isa = PBXGroup;
 			children = (
 				7560EED82FB3811E00FA5EF0 /* SnapTranslate */,
-				7560EEF62FB396B300FA5EF0 /* SnapTranslateShare */,
 				7560EEF32FB396B300FA5EF0 /* Frameworks */,
 				7560EED72FB3811E00FA5EF0 /* Products */,
 			);
@@ -112,7 +56,6 @@
 			isa = PBXGroup;
 			children = (
 				7560EED62FB3811E00FA5EF0 /* SnapTranslate.app */,
-				7560EEF22FB396B300FA5EF0 /* SnapTranslateShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -140,7 +83,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				7560EF002FB396B400FA5EF0 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				7560EED82FB3811E00FA5EF0 /* SnapTranslate */,
@@ -151,28 +93,6 @@
 			productName = SnapTranslate;
 			productReference = 7560EED62FB3811E00FA5EF0 /* SnapTranslate.app */;
 			productType = "com.apple.product-type.application";
-		};
-		7560EEF12FB396B300FA5EF0 /* SnapTranslateShare */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 7560EF032FB396B400FA5EF0 /* Build configuration list for PBXNativeTarget "SnapTranslateShare" */;
-			buildPhases = (
-				7560EEEE2FB396B300FA5EF0 /* Sources */,
-				7560EEEF2FB396B300FA5EF0 /* Frameworks */,
-				7560EEF02FB396B300FA5EF0 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				7560EEF62FB396B300FA5EF0 /* SnapTranslateShare */,
-			);
-			name = SnapTranslateShare;
-			packageProductDependencies = (
-			);
-			productName = SnapTranslateShare;
-			productReference = 7560EEF22FB396B300FA5EF0 /* SnapTranslateShare.appex */;
-			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -185,9 +105,6 @@
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					7560EED52FB3811E00FA5EF0 = {
-						CreatedOnToolsVersion = 26.5;
-					};
-					7560EEF12FB396B300FA5EF0 = {
 						CreatedOnToolsVersion = 26.5;
 					};
 				};
@@ -207,20 +124,12 @@
 			projectRoot = "";
 			targets = (
 				7560EED52FB3811E00FA5EF0 /* SnapTranslate */,
-				7560EEF12FB396B300FA5EF0 /* SnapTranslateShare */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		7560EED42FB3811E00FA5EF0 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		7560EEF02FB396B300FA5EF0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -237,22 +146,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		7560EEEE2FB396B300FA5EF0 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		7560EF002FB396B400FA5EF0 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7560EEF12FB396B300FA5EF0 /* SnapTranslateShare */;
-			targetProxy = 7560EEFF2FB396B400FA5EF0 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		7560EEDF2FB3812000FA5EF0 /* Debug */ = {
@@ -444,62 +338,6 @@
 			};
 			name = Release;
 		};
-		7560EF042FB396B400FA5EF0 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZP42T36L93;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = SnapTranslateShare/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "快捷识屏";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.yangjianfeng.SnapTranslate.SnapTranslateShare;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		7560EF052FB396B400FA5EF0 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZP42T36L93;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = SnapTranslateShare/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "快捷识屏";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.yangjianfeng.SnapTranslate.SnapTranslateShare;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -517,15 +355,6 @@
 			buildConfigurations = (
 				7560EEE22FB3812000FA5EF0 /* Debug */,
 				7560EEE32FB3812000FA5EF0 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		7560EF032FB396B400FA5EF0 /* Build configuration list for PBXNativeTarget "SnapTranslateShare" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				7560EF042FB396B400FA5EF0 /* Debug */,
-				7560EF052FB396B400FA5EF0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
